@@ -99,6 +99,22 @@ public static class DarkModeHelper
                 nud.ForeColor = dark ? DarkFg : LightFg;
                 break;
 
+            case ComboBox cmb:
+                cmb.BackColor = dark ? DarkBgInput : LightBgInput;
+                cmb.ForeColor = dark ? DarkFg : LightFg;
+                cmb.FlatStyle = dark ? FlatStyle.Flat : FlatStyle.Standard;
+                break;
+
+            case TabControl tc:
+                tc.BackColor = dark ? DarkBg : LightBg;
+                tc.ForeColor = dark ? DarkFg : LightFg;
+                break;
+
+            case TabPage tp:
+                tp.BackColor = dark ? DarkBg : LightBg;
+                tp.ForeColor = dark ? DarkFg : LightFg;
+                break;
+
             // CheckedListBox inherits ListBox – must come first
             case CheckedListBox clb:
                 clb.BackColor = dark ? DarkBgInput : LightBgInput;

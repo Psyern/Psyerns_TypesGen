@@ -27,7 +27,13 @@ public sealed class MainForm : Form
     private Button btnBulkApply = null!;
     private CheckBox chkDarkMode = null!;
 
-    // ── Editor ────────────────────────────────────────────────────
+    // ── Tab control for editor views ─────────────────────────────
+    private TabControl tabEditor = null!;
+    private TabPage tabTypes = null!;
+    private TabPage tabMarket = null!;
+    private TabPage tabTrader = null!;
+
+    // ── Types.xml editor ──────────────────────────────────────────
     private TableLayoutPanel tlpEditor = null!;
     private NumericUpDown numNominal = null!;
     private NumericUpDown numLifetime = null!;
@@ -55,7 +61,6 @@ public sealed class MainForm : Form
     private CheckedListBox clbValue = null!;
 
     // ── Market editor ─────────────────────────────────────────────
-    private GroupBox grpMarket = null!;
     private TableLayoutPanel tlpMarket = null!;
     private NumericUpDown numMaxPrice = null!;
     private NumericUpDown numMinPrice = null!;
@@ -67,7 +72,6 @@ public sealed class MainForm : Form
     private TextBox txtVariants = null!;
 
     // ── Trader editor ─────────────────────────────────────────────
-    private GroupBox grpTrader = null!;
     private TableLayoutPanel tlpTrader = null!;
     private ComboBox cmbBuySellMode = null!;
     private Label lblTraderDest = null!;
@@ -152,8 +156,7 @@ public sealed class MainForm : Form
         mnuImport.Items.Add("Import Classnamelist (.txt)", null, (_, _) => ImportClassList());
         mnuImport.Items.Add("Import types.xml", null, (_, _) => ImportTypesXml());
         mnuImport.Items.Add(new ToolStripSeparator());
-        mnuImport.Items.Add("Import Market JSON", null, (_, _) => ImportMarketJson());
-        mnuImport.Items.Add("Import Trader JSON", null, (_, _) => ImportTraderJson());
+        mnuImport.Items.Add("Import Expansion JSON (auto-detect)", null, (_, _) => ImportExpansionJson());
 
         btnImport = new Button
         {
@@ -334,6 +337,25 @@ public sealed class MainForm : Form
         pnlFile.Controls.Add(lblDestination);
         pnlFile.Controls.Add(flowButtons);
 
+        // ── Tab Control for editor sections ─────────────────────────
+        tabEditor = new TabControl
+        {
+            Name = "tabEditor",
+            Dock = DockStyle.Top,
+            Height = 800
+        };
+
+        // ═══════════════════════════════════════════════════════════
+        // TAB 1: Types.xml
+        // ═══════════════════════════════════════════════════════════
+        tabTypes = new TabPage
+        {
+            Name = "tabTypes",
+            Text = "📄 Types.xml",
+            AutoScroll = true,
+            Padding = new Padding(4)
+        };
+
         tlpEditor = new TableLayoutPanel
         {
             Name = "tlpEditor",
@@ -393,24 +415,28 @@ public sealed class MainForm : Form
         AddFullWidthRow(grpUsageFlags);
         AddFullWidthRow(grpValueFlags);
 
-        // ── Market Editor ─────────────────────────────────────────
-        grpMarket = new GroupBox
+        tabTypes.Controls.Add(tlpEditor);
+        tabEditor.TabPages.Add(tabTypes);
+
+        // ═══════════════════════════════════════════════════════════
+        // TAB 2: Market (Expansion JSON)
+        // ═══════════════════════════════════════════════════════════
+        tabMarket = new TabPage
         {
-            Name = "grpMarket",
-            Text = "Market (Expansion JSON)",
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            Padding = new Padding(8)
+            Name = "tabMarket",
+            Text = "🛒 Market",
+            AutoScroll = true,
+            Padding = new Padding(4)
         };
 
         tlpMarket = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 2,
-            Padding = new Padding(4)
+            Padding = new Padding(8)
         };
-        tlpMarket.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        tlpMarket.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
         tlpMarket.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         numMaxPrice = new NumericUpDown { Name = "numMaxPrice" };
@@ -443,27 +469,28 @@ public sealed class MainForm : Form
         tlpMarket.Controls.Add(lblVariants, 0, varRow);
         tlpMarket.Controls.Add(txtVariants, 1, varRow);
 
-        grpMarket.Controls.Add(tlpMarket);
-        AddFullWidthRow(grpMarket);
+        tabMarket.Controls.Add(tlpMarket);
+        tabEditor.TabPages.Add(tabMarket);
 
-        // ── Trader Editor ─────────────────────────────────────────
-        grpTrader = new GroupBox
+        // ═══════════════════════════════════════════════════════════
+        // TAB 3: Trader (Expansion JSON)
+        // ═══════════════════════════════════════════════════════════
+        tabTrader = new TabPage
         {
-            Name = "grpTrader",
-            Text = "Trader (Expansion JSON)",
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            Padding = new Padding(8)
+            Name = "tabTrader",
+            Text = "🏪 Trader",
+            AutoScroll = true,
+            Padding = new Padding(4)
         };
 
         tlpTrader = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 2,
-            Padding = new Padding(4)
+            Padding = new Padding(8)
         };
-        tlpTrader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        tlpTrader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
         tlpTrader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         var lblBuySellMode = new Label
@@ -495,14 +522,14 @@ public sealed class MainForm : Form
         tlpTrader.Controls.Add(lblBuySellMode, 0, traderRow);
         tlpTrader.Controls.Add(cmbBuySellMode, 1, traderRow);
 
-        grpTrader.Controls.Add(tlpTrader);
-        AddFullWidthRow(grpTrader);
+        tabTrader.Controls.Add(tlpTrader);
+        tabEditor.TabPages.Add(tabTrader);
 
         statusStrip = new StatusStrip { Name = "statusStrip" };
         lblStatus = new ToolStripStatusLabel { Name = "lblStatus", Text = "Ready" };
         statusStrip.Items.Add(lblStatus);
 
-        pnlRight.Controls.Add(tlpEditor);
+        pnlRight.Controls.Add(tabEditor);
         pnlRight.Controls.Add(pnlFile);
 
         splitMain.Panel2.Controls.Add(pnlRight);
@@ -779,9 +806,14 @@ public sealed class MainForm : Form
         if (ofd.ShowDialog(this) != DialogResult.OK)
             return;
 
+        ImportMarketJsonFromPath(ofd.FileName);
+    }
+
+    private void ImportMarketJsonFromPath(string path)
+    {
         try
         {
-            var items = MarketJsonService.ImportFromFile(ofd.FileName);
+            var items = MarketJsonService.ImportFromFile(path);
             if (items.Count == 0)
             {
                 SetStatus("No items found in Market JSON.");
@@ -794,7 +826,6 @@ public sealed class MainForm : Form
                 _marketCache[item.ClassName] = item;
                 merged.Add(item.ClassName);
 
-                // Also create a types.xml entry if not present
                 if (!_cache.ContainsKey(item.ClassName))
                 {
                     _cache[item.ClassName] = _typesService.HasDestination
@@ -805,6 +836,7 @@ public sealed class MainForm : Form
 
             _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
             ApplyFilter();
+            tabEditor.SelectedTab = tabMarket;
             SetStatus($"Imported {items.Count} items from Market JSON.");
         }
         catch (Exception ex)
@@ -825,9 +857,14 @@ public sealed class MainForm : Form
         if (ofd.ShowDialog(this) != DialogResult.OK)
             return;
 
+        ImportTraderJsonFromPath(ofd.FileName);
+    }
+
+    private void ImportTraderJsonFromPath(string path)
+    {
         try
         {
-            var items = TraderJsonService.ImportFromFile(ofd.FileName);
+            var items = TraderJsonService.ImportFromFile(path);
             if (items.Count == 0)
             {
                 SetStatus("No items found in Trader JSON.");
@@ -840,7 +877,6 @@ public sealed class MainForm : Form
                 _traderCache[item.ClassName] = item;
                 merged.Add(item.ClassName);
 
-                // Also create a types.xml entry if not present
                 if (!_cache.ContainsKey(item.ClassName))
                 {
                     _cache[item.ClassName] = _typesService.HasDestination
@@ -851,12 +887,70 @@ public sealed class MainForm : Form
 
             _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
             ApplyFilter();
+            tabEditor.SelectedTab = tabTrader;
             SetStatus($"Imported {items.Count} items from Trader JSON.");
         }
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "Import error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus("Import Trader JSON failed.");
+        }
+    }
+
+    /// <summary>
+    /// Auto-detect whether a JSON file is Market format (Items is array) or Trader format (Items is object).
+    /// </summary>
+    private void ImportExpansionJson()
+    {
+        using var ofd = new OpenFileDialog
+        {
+            Title = "Import Expansion JSON (Market or Trader)",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+        };
+
+        if (ofd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            var json = File.ReadAllText(ofd.FileName);
+            var doc = System.Text.Json.JsonDocument.Parse(json, new System.Text.Json.JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = System.Text.Json.JsonCommentHandling.Skip
+            });
+
+            if (doc.RootElement.TryGetProperty("Items", out var itemsProp))
+            {
+                if (itemsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    // Market format: Items is an array of objects with ClassName etc.
+                    ImportMarketJsonFromPath(ofd.FileName);
+                    return;
+                }
+                else if (itemsProp.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    // Trader format: Items is a map of classname → int
+                    ImportTraderJsonFromPath(ofd.FileName);
+                    return;
+                }
+            }
+
+            // Fallback: try to detect by other fields
+            if (doc.RootElement.TryGetProperty("TraderIcon", out _) ||
+                doc.RootElement.TryGetProperty("Currencies", out _))
+            {
+                ImportTraderJsonFromPath(ofd.FileName);
+            }
+            else
+            {
+                ImportMarketJsonFromPath(ofd.FileName);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Import error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Import Expansion JSON failed.");
         }
     }
 
@@ -891,6 +985,7 @@ public sealed class MainForm : Form
             if (!string.IsNullOrWhiteSpace(_currentClassname))
                 LoadClassIntoUi(_currentClassname);
 
+            tabEditor.SelectedTab = tabMarket;
             SetStatus("Market destination set.");
 
             try
@@ -979,6 +1074,7 @@ public sealed class MainForm : Form
             if (!string.IsNullOrWhiteSpace(_currentClassname))
                 LoadClassIntoUi(_currentClassname);
 
+            tabEditor.SelectedTab = tabMarket;
             SetStatus($"Created Market JSON with {count} items → {sfd.FileName}");
         }
         catch (Exception ex)
@@ -1019,6 +1115,7 @@ public sealed class MainForm : Form
             if (!string.IsNullOrWhiteSpace(_currentClassname))
                 LoadClassIntoUi(_currentClassname);
 
+            tabEditor.SelectedTab = tabTrader;
             SetStatus("Trader destination set.");
 
             try
@@ -1101,6 +1198,7 @@ public sealed class MainForm : Form
             if (!string.IsNullOrWhiteSpace(_currentClassname))
                 LoadClassIntoUi(_currentClassname);
 
+            tabEditor.SelectedTab = tabTrader;
             SetStatus($"Created Trader JSON with {count} items → {sfd.FileName}");
         }
         catch (Exception ex)
