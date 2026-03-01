@@ -66,6 +66,12 @@ public sealed class MainForm : Form
     private TextBox txtSpawnAttachments = null!;
     private TextBox txtVariants = null!;
 
+    // ── Trader editor ─────────────────────────────────────────────
+    private GroupBox grpTrader = null!;
+    private TableLayoutPanel tlpTrader = null!;
+    private ComboBox cmbBuySellMode = null!;
+    private Label lblTraderDest = null!;
+
     private StatusStrip statusStrip = null!;
     private ToolStripStatusLabel lblStatus = null!;
 
@@ -73,9 +79,11 @@ public sealed class MainForm : Form
     private readonly System.Windows.Forms.Timer _autosaveTimer = new() { Interval = 500 };
     private readonly TypesXmlService _typesService = new();
     private readonly MarketJsonService _marketService = new();
+    private readonly TraderJsonService _traderService = new();
     private readonly UndoRedoService _undoRedo = new();
     private readonly Dictionary<string, TypeEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, MarketItem> _marketCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TraderItem> _traderCache = new(StringComparer.OrdinalIgnoreCase);
 
     private List<string> _allClasses = new();
     private string? _currentClassname;
@@ -145,6 +153,7 @@ public sealed class MainForm : Form
         mnuImport.Items.Add("Import types.xml", null, (_, _) => ImportTypesXml());
         mnuImport.Items.Add(new ToolStripSeparator());
         mnuImport.Items.Add("Import Market JSON", null, (_, _) => ImportMarketJson());
+        mnuImport.Items.Add("Import Trader JSON", null, (_, _) => ImportTraderJson());
 
         btnImport = new Button
         {
@@ -201,8 +210,10 @@ public sealed class MainForm : Form
         mnuExport = new ContextMenuStrip { Name = "mnuExport" };
         mnuExport.Items.Add("Set Destination types.xml", null, (_, _) => SelectDestination());
         mnuExport.Items.Add("Set Destination Market JSON", null, (_, _) => SelectMarketDestination());
+        mnuExport.Items.Add("Set Destination Trader JSON", null, (_, _) => SelectTraderDestination());
         mnuExport.Items.Add(new ToolStripSeparator());
         mnuExport.Items.Add("Create new Market JSON from Selected", null, (_, _) => CreateMarketJsonFromSelected());
+        mnuExport.Items.Add("Create new Trader JSON from Selected", null, (_, _) => CreateTraderJsonFromSelected());
         mnuExport.Items.Add(new ToolStripSeparator());
         mnuExport.Items.Add("Export now", null, (_, _) => ExportNow());
 
@@ -290,6 +301,16 @@ public sealed class MainForm : Form
             Text = "Market JSON: (none)",
             Dock = DockStyle.Top,
             AutoEllipsis = true,
+            Padding = new Padding(6, 0, 6, 0),
+            Height = 18
+        };
+
+        lblTraderDest = new Label
+        {
+            Name = "lblTraderDest",
+            Text = "Trader JSON: (none)",
+            Dock = DockStyle.Top,
+            AutoEllipsis = true,
             Padding = new Padding(6, 0, 6, 2),
             Height = 18
         };
@@ -308,6 +329,7 @@ public sealed class MainForm : Form
 
         // Add in reverse order (Dock = Top stacks bottom-up)
         pnlFile.Controls.Add(lblMultiHint);
+        pnlFile.Controls.Add(lblTraderDest);
         pnlFile.Controls.Add(lblMarketDest);
         pnlFile.Controls.Add(lblDestination);
         pnlFile.Controls.Add(flowButtons);
@@ -424,6 +446,58 @@ public sealed class MainForm : Form
         grpMarket.Controls.Add(tlpMarket);
         AddFullWidthRow(grpMarket);
 
+        // ── Trader Editor ─────────────────────────────────────────
+        grpTrader = new GroupBox
+        {
+            Name = "grpTrader",
+            Text = "Trader (Expansion JSON)",
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new Padding(8)
+        };
+
+        tlpTrader = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 2,
+            Padding = new Padding(4)
+        };
+        tlpTrader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        tlpTrader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        var lblBuySellMode = new Label
+        {
+            Text = "Buy/Sell Mode",
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            Padding = new Padding(0, 6, 0, 0)
+        };
+
+        cmbBuySellMode = new ComboBox
+        {
+            Name = "cmbBuySellMode",
+            Dock = DockStyle.Left,
+            Width = 200,
+            DropDownStyle = ComboBoxStyle.DropDownList
+        };
+        cmbBuySellMode.Items.AddRange(new object[]
+        {
+            "0 – Buy only",
+            "1 – Buy + Sell",
+            "2 – Sell only",
+            "3 – Hidden / Attachment"
+        });
+        cmbBuySellMode.SelectedIndex = 1; // default: Buy + Sell
+
+        var traderRow = tlpTrader.RowCount++;
+        tlpTrader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        tlpTrader.Controls.Add(lblBuySellMode, 0, traderRow);
+        tlpTrader.Controls.Add(cmbBuySellMode, 1, traderRow);
+
+        grpTrader.Controls.Add(tlpTrader);
+        AddFullWidthRow(grpTrader);
+
         statusStrip = new StatusStrip { Name = "statusStrip" };
         lblStatus = new ToolStripStatusLabel { Name = "lblStatus", Text = "Ready" };
         statusStrip.Items.Add(lblStatus);
@@ -533,6 +607,8 @@ public sealed class MainForm : Form
         txtSpawnAttachments.TextChanged += (_, _) => OnEditorChanged();
         txtVariants.TextChanged += (_, _) => OnEditorChanged();
 
+        cmbBuySellMode.SelectedIndexChanged += (_, _) => OnEditorChanged();
+
         _autosaveTimer.Tick += (_, _) => AutosaveTick();
 
         // Ctrl+Z / Ctrl+Y keyboard shortcuts
@@ -563,6 +639,7 @@ public sealed class MainForm : Form
 
                 PersistToXml(force: true);
                 PersistMarket(force: true);
+                PersistTrader(force: true);
             }
             catch (Exception ex)
             {
@@ -737,6 +814,52 @@ public sealed class MainForm : Form
         }
     }
 
+    private void ImportTraderJson()
+    {
+        using var ofd = new OpenFileDialog
+        {
+            Title = "Import Trader JSON",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+        };
+
+        if (ofd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            var items = TraderJsonService.ImportFromFile(ofd.FileName);
+            if (items.Count == 0)
+            {
+                SetStatus("No items found in Trader JSON.");
+                return;
+            }
+
+            var merged = new HashSet<string>(_allClasses, StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                _traderCache[item.ClassName] = item;
+                merged.Add(item.ClassName);
+
+                // Also create a types.xml entry if not present
+                if (!_cache.ContainsKey(item.ClassName))
+                {
+                    _cache[item.ClassName] = _typesService.HasDestination
+                        ? (_typesService.TryRead(item.ClassName) ?? TypeEntry.CreateDefault(item.ClassName))
+                        : TypeEntry.CreateDefault(item.ClassName);
+                }
+            }
+
+            _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
+            ApplyFilter();
+            SetStatus($"Imported {items.Count} items from Trader JSON.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Import error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Import Trader JSON failed.");
+        }
+    }
+
     private void SelectMarketDestination()
     {
         using var sfd = new SaveFileDialog
@@ -865,6 +988,128 @@ public sealed class MainForm : Form
         }
     }
 
+    private void SelectTraderDestination()
+    {
+        using var sfd = new SaveFileDialog
+        {
+            Title = "Select destination Trader JSON",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            FileName = "Trader.json"
+        };
+
+        if (sfd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            _traderService.SetDestination(sfd.FileName);
+            lblTraderDest.Text = $"Trader JSON: {sfd.FileName}";
+
+            // Read existing items from the destination
+            if (File.Exists(sfd.FileName))
+            {
+                var existing = _traderService.Load(sfd.FileName);
+                foreach (var item in existing)
+                {
+                    if (!_traderCache.ContainsKey(item.ClassName))
+                        _traderCache[item.ClassName] = item;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_currentClassname))
+                LoadClassIntoUi(_currentClassname);
+
+            SetStatus("Trader destination set.");
+
+            try
+            {
+                PersistTrader(force: false);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Initial trader save warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                SetStatus("Trader destination set, but initial sync failed.");
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Trader destination error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Trader destination selection failed.");
+        }
+    }
+
+    private void CreateTraderJsonFromSelected()
+    {
+        var selected = lstClasses.SelectedItems.Cast<string>().ToList();
+        if (selected.Count == 0)
+        {
+            if (_allClasses.Count == 0)
+            {
+                MessageBox.Show(this, "No classnames loaded. Import a classlist or types.xml first.",
+                    "Create Trader JSON", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var useAll = MessageBox.Show(this,
+                $"No items selected.\nCreate Trader JSON for all {_allClasses.Count} classnames in the list?",
+                "Create Trader JSON", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (useAll != DialogResult.Yes) return;
+            selected = new List<string>(_allClasses);
+        }
+
+        // Ask for display name
+        var displayName = PromptInput("Trader Display Name",
+            "Enter a display name for this trader\n(e.g. \"Marina Wodka-Queen\"):",
+            "NewTrader");
+
+        if (displayName == null) return;
+
+        // Choose save location
+        using var sfd = new SaveFileDialog
+        {
+            Title = "Save new Trader JSON file",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            FileName = $"{displayName.Replace("#", "").Replace(" ", "_")}.json"
+        };
+
+        if (sfd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            _traderService.SetDestination(sfd.FileName);
+            lblTraderDest.Text = $"Trader JSON: {sfd.FileName}";
+            _traderService.SetDisplayName(displayName);
+
+            var count = 0;
+            foreach (var className in selected)
+            {
+                if (!_traderCache.TryGetValue(className, out var trd))
+                {
+                    trd = TraderItem.CreateDefault(className);
+                }
+
+                trd.IsDirty = true;
+                _traderCache[className] = trd;
+                _traderService.Upsert(trd);
+                count++;
+            }
+
+            _traderService.Save();
+
+            if (!string.IsNullOrWhiteSpace(_currentClassname))
+                LoadClassIntoUi(_currentClassname);
+
+            SetStatus($"Created Trader JSON with {count} items → {sfd.FileName}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Create Trader JSON error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Create Trader JSON failed.");
+        }
+    }
+
     /// <summary>Simple input prompt dialog.</summary>
     private static string? PromptInput(string title, string label, string defaultValue)
     {
@@ -905,6 +1150,7 @@ public sealed class MainForm : Form
         _allClasses.Clear();
         _cache.Clear();
         _marketCache.Clear();
+        _traderCache.Clear();
         _undoRedo.Clear();
         _autosaveTimer.Stop();
 
@@ -943,6 +1189,8 @@ public sealed class MainForm : Form
             numQuantityPercent.Value = -1;
             txtSpawnAttachments.Clear();
             txtVariants.Clear();
+
+            cmbBuySellMode.SelectedIndex = 1; // default: Buy + Sell
         }
         finally
         {
@@ -1055,6 +1303,11 @@ public sealed class MainForm : Form
         if (_marketCache.TryGetValue(_currentClassname, out var mktTpl))
             marketTemplate = mktTpl;
 
+        // Get trader template if available
+        TraderItem? traderTemplate = null;
+        if (_traderCache.TryGetValue(_currentClassname, out var trdTpl))
+            traderTemplate = trdTpl;
+
         var count = 0;
         foreach (var className in selectedItems)
         {
@@ -1084,11 +1337,25 @@ public sealed class MainForm : Form
                 mktEntry.IsDirty = true;
             }
 
+            // Also bulk-apply trader data
+            if (traderTemplate != null)
+            {
+                if (!_traderCache.TryGetValue(className, out var trdEntry))
+                {
+                    trdEntry = TraderItem.CreateDefault(className);
+                    _traderCache[className] = trdEntry;
+                }
+                trdEntry.CopyFrom(traderTemplate);
+                trdEntry.ClassName = className;
+                trdEntry.IsDirty = true;
+            }
+
             count++;
         }
 
         PersistToXml(force: true);
         PersistMarket(force: true);
+        PersistTrader(force: true);
         UpdateUndoRedoButtons();
         SetStatus($"Bulk-applied to {count} classnames.");
     }
@@ -1170,9 +1437,15 @@ public sealed class MainForm : Form
                 exported = true;
             }
 
+            if (_traderService.HasFile)
+            {
+                PersistTrader(force: true);
+                exported = true;
+            }
+
             if (!exported)
             {
-                MessageBox.Show(this, "Please select a destination types.xml or Market JSON first.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "Please select a destination types.xml, Market JSON, or Trader JSON first.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 SetStatus("Export skipped: no destination selected.");
                 return;
             }
@@ -1219,6 +1492,7 @@ public sealed class MainForm : Form
 
             PersistToXml(force: true);
             PersistMarket(force: true);
+            PersistTrader(force: true);
 
             _currentClassname = selected;
             LoadClassIntoUi(selected);
@@ -1290,6 +1564,17 @@ public sealed class MainForm : Form
                 numQuantityPercent.Value = -1;
                 txtSpawnAttachments.Clear();
                 txtVariants.Clear();
+            }
+
+            // ── Trader fields ──
+            if (_traderCache.TryGetValue(classname, out var trd))
+            {
+                var mode = Math.Clamp(trd.BuySellMode, 0, 3);
+                cmbBuySellMode.SelectedIndex = mode;
+            }
+            else
+            {
+                cmbBuySellMode.SelectedIndex = 1; // default: Buy + Sell
             }
         }
         finally
@@ -1439,6 +1724,7 @@ public sealed class MainForm : Form
 
             PersistToXml(force: false);
             PersistMarket(force: false);
+            PersistTrader(force: false);
             SetStatus("Saved.");
         }
         catch (Exception ex)
@@ -1506,6 +1792,9 @@ public sealed class MainForm : Form
         // ── Save market fields ──
         SaveMarketFromUi(_currentClassname);
 
+        // ── Save trader fields ──
+        SaveTraderFromUi(_currentClassname);
+
         return true;
     }
 
@@ -1544,6 +1833,18 @@ public sealed class MainForm : Form
         mkt.IsDirty = true;
     }
 
+    private void SaveTraderFromUi(string className)
+    {
+        if (!_traderCache.TryGetValue(className, out var trd))
+        {
+            trd = TraderItem.CreateDefault(className);
+            _traderCache[className] = trd;
+        }
+
+        trd.BuySellMode = cmbBuySellMode.SelectedIndex >= 0 ? cmbBuySellMode.SelectedIndex : 1;
+        trd.IsDirty = true;
+    }
+
     private static List<string> ParseCommaSeparated(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return new List<string>();
@@ -1566,6 +1867,22 @@ public sealed class MainForm : Form
         }
 
         _marketService.Save();
+    }
+
+    private void PersistTrader(bool force)
+    {
+        if (!_traderService.HasFile) return;
+
+        foreach (var kvp in _traderCache)
+        {
+            var item = kvp.Value;
+            if (!force && !item.IsDirty) continue;
+
+            _traderService.Upsert(item);
+            item.IsDirty = false;
+        }
+
+        _traderService.Save();
     }
 
     private void PersistToXml(bool force)

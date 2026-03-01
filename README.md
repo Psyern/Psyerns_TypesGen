@@ -10,7 +10,9 @@ A lightweight **Windows WinForms** helper for editing DayZ `types.xml` data acro
 - Ignore empty lines and comment lines (`#` and `//`) during class import.
 - **Import from existing `types.xml`** – loads all classnames and their values, auto-populates Categories, Tags, UsageFlags, ValueFlags.
 - **Import / Edit / Export DayZ Expansion Market JSON** files (prices, stock, quantity, attachments, variants).
+- **Import / Edit / Export DayZ Expansion Trader JSON** files (buy/sell mode per item).
 - **Create new Market JSON** from selected classnames.
+- **Create new Trader JSON** from selected classnames.
 - Searchable classname list.
 - **Multi-select classnames** (Ctrl/Shift) for **bulk editing**.
 - **Bulk Apply** – apply current editor values to all selected classnames at once.
@@ -42,15 +44,19 @@ A lightweight **Windows WinForms** helper for editing DayZ `types.xml` data acro
   - `DarkModeHelper.cs`
   - `Models/TypeEntry.cs`
   - `Models/MarketItem.cs`
+  - `Models/TraderItem.cs`
   - `Services/ClassnameListService.cs`
   - `Services/TypesXmlService.cs`
   - `Services/MarketJsonService.cs`
+  - `Services/TraderJsonService.cs`
   - `Services/UndoRedoService.cs`
 - `DayZTypesHelper.Tests/`
   - `DayZTypesHelper.Tests.csproj`
   - `ClassnameListServiceTests.cs`
   - `TypesXmlServiceTests.cs`
   - `TypeEntryTests.cs`
+  - `TraderItemTests.cs`
+  - `TraderJsonServiceTests.cs`
   - `UndoRedoServiceTests.cs`
 
 ## Build & Run (Windows)
@@ -102,11 +108,18 @@ dotnet test DayZTypesHelper.sln
 8. **Autosave/Export**
    - Wait ~500ms after edit and verify autosave.
    - Use **Export now** and verify write.
-9. **Dark Mode**
+9. **Market JSON**
+   - Import Market JSON, edit prices/stock, export to destination.
+   - Create new Market JSON from selected classnames.
+10. **Trader JSON**
+    - Import Trader JSON, change buy/sell mode per item, export to destination.
+    - Create new Trader JSON from selected classnames.
+    - Buy/Sell modes: 0=Buy only, 1=Buy+Sell, 2=Sell only, 3=Hidden/Attachment.
+11. **Dark Mode**
     - Toggle "Dark Mode" checkbox to switch theme.
-10. **Close app**
+12. **Close app**
     - Verify latest valid edits persist.
-11. **Corrupt XML**
+13. **Corrupt XML**
     - Try loading a corrupt XML file – expect a clear error message.
 
 ## Notes
