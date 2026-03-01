@@ -24,11 +24,39 @@ public sealed class TraderJsonService
     /// <summary>Display name from the JSON (e.g. "Marina Wodka-Queen").</summary>
     public string DisplayName => _rootNode?["DisplayName"]?.GetValue<string>() ?? "(unknown)";
 
+    /// <summary>Trader icon from the JSON (e.g. "Shotgun").</summary>
+    public string TraderIcon => _rootNode?["TraderIcon"]?.GetValue<string>() ?? "";
+
     /// <summary>Set the display name on the root JSON object.</summary>
     public void SetDisplayName(string name)
     {
         if (_rootNode != null)
             _rootNode["DisplayName"] = name;
+    }
+
+    /// <summary>Set the trader icon on the root JSON object.</summary>
+    public void SetTraderIcon(string icon)
+    {
+        if (_rootNode != null)
+            _rootNode["TraderIcon"] = icon;
+    }
+
+    /// <summary>Set the currencies list on the root JSON object.</summary>
+    public void SetCurrencies(List<string> currencies)
+    {
+        if (_rootNode == null) return;
+        var arr = new JsonArray();
+        foreach (var c in currencies) arr.Add(c);
+        _rootNode["Currencies"] = arr;
+    }
+
+    /// <summary>Set the categories list on the root JSON object.</summary>
+    public void SetCategories(List<string> categories)
+    {
+        if (_rootNode == null) return;
+        var arr = new JsonArray();
+        foreach (var c in categories) arr.Add(c);
+        _rootNode["Categories"] = arr;
     }
 
     /// <summary>Load a trader JSON file and return all items.</summary>

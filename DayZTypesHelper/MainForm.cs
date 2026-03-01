@@ -5,7 +5,7 @@ namespace DayZTypesHelper;
 
 public sealed class MainForm : Form
 {
-    private const string AppVersion = "v1.00";
+    private const string AppVersion = "v1.01";
 
     // ── Menu bar ──────────────────────────────────────────────────
     private MenuStrip menuStrip = null!;
@@ -79,6 +79,11 @@ public sealed class MainForm : Form
     // ── Trader editor ─────────────────────────────────────────────
     private TableLayoutPanel tlpTrader = null!;
     private ComboBox cmbBuySellMode = null!;
+    private TextBox txtTraderDisplayName = null!;
+    private TextBox txtTraderIcon = null!;
+    private TextBox txtCurrencies = null!;
+    private ListBox lstTraderCategories = null!;
+    private Button btnLoadMarketFromCategories = null!;
     private Label lblTraderDest = null!;
 
     private StatusStrip statusStrip = null!;
@@ -527,6 +532,46 @@ public sealed class MainForm : Form
         tlpTrader.Controls.Add(lblBuySellMode, 0, traderRow);
         tlpTrader.Controls.Add(cmbBuySellMode, 1, traderRow);
 
+        // ── Trader metadata fields ──
+        AddTraderRow("DisplayName", txtTraderDisplayName = new TextBox { Name = "txtTraderDisplayName", Dock = DockStyle.Fill });
+        AddTraderRow("TraderIcon", txtTraderIcon = new TextBox { Name = "txtTraderIcon", Dock = DockStyle.Fill });
+        AddTraderRow("Currencies", txtCurrencies = new TextBox { Name = "txtCurrencies", Dock = DockStyle.Fill, PlaceholderText = "comma-separated (e.g. expansionbanknotehryvnia, expansiongoldbar)" });
+
+        // ── Categories list (read-only display of referenced Market files) ──
+        var lblCats = new Label
+        {
+            Text = "Categories\n(= Market files)",
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            Padding = new Padding(0, 6, 0, 0)
+        };
+        lstTraderCategories = new ListBox
+        {
+            Name = "lstTraderCategories",
+            Dock = DockStyle.Fill,
+            Height = 140,
+            SelectionMode = SelectionMode.None
+        };
+        var catRow = tlpTrader.RowCount++;
+        tlpTrader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        tlpTrader.Controls.Add(lblCats, 0, catRow);
+        tlpTrader.Controls.Add(lstTraderCategories, 1, catRow);
+
+        // ── Button: Load all referenced Market JSONs ──
+        btnLoadMarketFromCategories = new Button
+        {
+            Name = "btnLoadMarketFromCategories",
+            Text = "📂 Load Market files from Categories",
+            Dock = DockStyle.Left,
+            Width = 280,
+            Height = 30,
+            Margin = new Padding(0, 4, 0, 4)
+        };
+        var btnRow = tlpTrader.RowCount++;
+        tlpTrader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        tlpTrader.Controls.Add(new Label(), 0, btnRow); // spacer
+        tlpTrader.Controls.Add(btnLoadMarketFromCategories, 1, btnRow);
+
         tabTrader.Controls.Add(tlpTrader);
         tabEditor.TabPages.Add(tabTrader);
 
@@ -615,6 +660,16 @@ public sealed class MainForm : Form
         tlpMarket.Controls.Add(nud, 1, row);
     }
 
+    private void AddTraderRow(string label, Control control)
+    {
+        var row = tlpTrader.RowCount++;
+        tlpTrader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var lbl = new Label { Text = label, AutoSize = true, Dock = DockStyle.Fill, Padding = new Padding(0, 6, 0, 0) };
+        tlpTrader.Controls.Add(lbl, 0, row);
+        tlpTrader.Controls.Add(control, 1, row);
+    }
+
     private void WireEvents()
     {
         txtSearch.TextChanged += (_, _) => ApplyFilter();
@@ -665,6 +720,10 @@ public sealed class MainForm : Form
         txtVariants.TextChanged += (_, _) => OnEditorChanged();
 
         cmbBuySellMode.SelectedIndexChanged += (_, _) => OnEditorChanged();
+        txtTraderDisplayName.TextChanged += (_, _) => OnTraderMetaChanged();
+        txtTraderIcon.TextChanged += (_, _) => OnTraderMetaChanged();
+        txtCurrencies.TextChanged += (_, _) => OnTraderMetaChanged();
+        btnLoadMarketFromCategories.Click += (_, _) => LoadMarketFilesFromCategories();
 
         _autosaveTimer.Tick += (_, _) => AutosaveTick();
 
@@ -780,6 +839,107 @@ public sealed class MainForm : Form
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch { /* ignore if browser can't be opened */ }
+    }
+
+    /// <summary>Called when Trader metadata fields (DisplayName, Icon, Currencies) change.</summary>
+    private void OnTraderMetaChanged()
+    {
+        if (_loadingUi || !_traderService.HasFile) return;
+
+        _traderService.SetDisplayName(txtTraderDisplayName.Text.Trim());
+        _traderService.SetTraderIcon(txtTraderIcon.Text.Trim());
+        _traderService.SetCurrencies(ParseCommaSeparated(txtCurrencies.Text));
+        _traderService.Save();
+    }
+
+    /// <summary>
+    /// Load all Market JSON files referenced by the Trader's Categories.
+    /// E.g. "Helmets:1" → looks for Helmets.json in the same folder as the Trader file.
+    /// </summary>
+    private void LoadMarketFilesFromCategories()
+    {
+        if (!_traderService.HasFile || _traderService.FilePath == null)
+        {
+            MessageBox.Show(this, "No Trader file loaded. Import a Trader JSON first.",
+                "Load Market Files", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var traderDir = Path.GetDirectoryName(_traderService.FilePath);
+        if (string.IsNullOrEmpty(traderDir))
+        {
+            SetStatus("Cannot determine Trader file directory.");
+            return;
+        }
+
+        var categories = _traderService.GetCategories();
+        if (categories.Count == 0)
+        {
+            SetStatus("No categories found in Trader file.");
+            return;
+        }
+
+        var totalItems = 0;
+        var loadedFiles = 0;
+        var notFound = new List<string>();
+
+        foreach (var catEntry in categories)
+        {
+            // Parse "Helmets:1" → name = "Helmets"
+            var catName = catEntry.Contains(':') ? catEntry[..catEntry.IndexOf(':')] : catEntry;
+            var marketPath = Path.Combine(traderDir, catName + ".json");
+
+            if (!File.Exists(marketPath))
+            {
+                notFound.Add($"{catName}.json");
+                continue;
+            }
+
+            try
+            {
+                var items = MarketJsonService.ImportFromFile(marketPath);
+                var merged = new HashSet<string>(_allClasses, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var item in items)
+                {
+                    _marketCache[item.ClassName] = item;
+                    merged.Add(item.ClassName);
+
+                    if (!_cache.ContainsKey(item.ClassName))
+                    {
+                        _cache[item.ClassName] = _typesService.HasDestination
+                            ? (_typesService.TryRead(item.ClassName) ?? TypeEntry.CreateDefault(item.ClassName))
+                            : TypeEntry.CreateDefault(item.ClassName);
+                    }
+                }
+
+                _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
+                totalItems += items.Count;
+                loadedFiles++;
+            }
+            catch (Exception ex)
+            {
+                notFound.Add($"{catName}.json (error: {ex.Message})");
+            }
+        }
+
+        ApplyFilter();
+
+        var msg = $"Loaded {totalItems} items from {loadedFiles}/{categories.Count} Market files.";
+        if (notFound.Count > 0)
+            msg += $"\nNot found: {string.Join(", ", notFound)}";
+
+        SetStatus(msg);
+
+        if (notFound.Count > 0)
+        {
+            MessageBox.Show(this,
+                $"Successfully loaded {loadedFiles} Market files ({totalItems} items).\n\n" +
+                $"Could not find {notFound.Count} file(s):\n" + string.Join("\n", notFound.Select(f => "  • " + f)) +
+                $"\n\nExpected location: {traderDir}",
+                "Load Market Files", MessageBoxButtons.OK,
+                loadedFiles > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Error);
+        }
     }
 
     private void ApplyFilter()
@@ -977,6 +1137,20 @@ public sealed class MainForm : Form
             _traderService.SetDestination(path);
             lblTraderDest.Text = $"Trader JSON: {path}";
 
+            // Populate Trader metadata UI
+            _loadingUi = true;
+            try
+            {
+                txtTraderDisplayName.Text = _traderService.DisplayName;
+                txtTraderIcon.Text = _traderService.TraderIcon;
+                txtCurrencies.Text = string.Join(", ", _traderService.GetCurrencies());
+
+                lstTraderCategories.Items.Clear();
+                foreach (var cat in _traderService.GetCategories())
+                    lstTraderCategories.Items.Add(cat);
+            }
+            finally { _loadingUi = false; }
+
             var merged = new HashSet<string>(_allClasses, StringComparer.OrdinalIgnoreCase);
             foreach (var item in items)
             {
@@ -995,10 +1169,11 @@ public sealed class MainForm : Form
             ApplyFilter();
             tabEditor.SelectedTab = tabTrader;
 
+            var catCount = _traderService.GetCategories().Count;
             if (items.Count == 0)
-                SetStatus($"Trader JSON loaded (0 items). Destination set → {Path.GetFileName(path)}");
+                SetStatus($"Trader loaded: \"{_traderService.DisplayName}\" – {catCount} categories, 0 item overrides. Destination set → {Path.GetFileName(path)}");
             else
-                SetStatus($"Imported {items.Count} items from Trader JSON.");
+                SetStatus($"Trader loaded: \"{_traderService.DisplayName}\" – {catCount} categories, {items.Count} item overrides.");
         }
         catch (Exception ex)
         {
@@ -1211,6 +1386,20 @@ public sealed class MainForm : Form
             _traderService.SetDestination(sfd.FileName);
             lblTraderDest.Text = $"Trader JSON: {sfd.FileName}";
 
+            // Populate Trader metadata UI
+            _loadingUi = true;
+            try
+            {
+                txtTraderDisplayName.Text = _traderService.DisplayName;
+                txtTraderIcon.Text = _traderService.TraderIcon;
+                txtCurrencies.Text = string.Join(", ", _traderService.GetCurrencies());
+
+                lstTraderCategories.Items.Clear();
+                foreach (var cat in _traderService.GetCategories())
+                    lstTraderCategories.Items.Add(cat);
+            }
+            finally { _loadingUi = false; }
+
             // Read existing items from the destination
             if (File.Exists(sfd.FileName))
             {
@@ -1399,6 +1588,10 @@ public sealed class MainForm : Form
             txtVariants.Clear();
 
             cmbBuySellMode.SelectedIndex = 1; // default: Buy + Sell
+            txtTraderDisplayName.Clear();
+            txtTraderIcon.Clear();
+            txtCurrencies.Clear();
+            lstTraderCategories.Items.Clear();
         }
         finally
         {
