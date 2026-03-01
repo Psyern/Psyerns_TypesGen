@@ -154,6 +154,17 @@ public static class DarkModeHelper
                 }
                 break;
 
+            case MenuStrip ms:
+                ApplyToolStrip(ms, dark);
+                foreach (ToolStripItem item in ms.Items)
+                {
+                    if (item is ToolStripMenuItem mi)
+                    {
+                        ApplyToolStrip(mi.DropDown, dark);
+                    }
+                }
+                break;
+
             // SplitContainer inherits ContainerControl – before Panel
             case SplitContainer sc:
                 sc.BackColor = dark ? DarkBg : LightBg;

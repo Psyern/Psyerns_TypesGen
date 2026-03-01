@@ -5,6 +5,11 @@ namespace DayZTypesHelper;
 
 public sealed class MainForm : Form
 {
+    private const string AppVersion = "v1.00";
+
+    // ── Menu bar ──────────────────────────────────────────────────
+    private MenuStrip menuStrip = null!;
+
     // ── Left side ─────────────────────────────────────────────────
     private SplitContainer splitMain = null!;
     private TextBox txtSearch = null!;
@@ -525,6 +530,29 @@ public sealed class MainForm : Form
         tabTrader.Controls.Add(tlpTrader);
         tabEditor.TabPages.Add(tabTrader);
 
+        // ── Menu bar ─────────────────────────────────────────────────
+        menuStrip = new MenuStrip { Name = "menuStrip" };
+
+        var helpMenu = new ToolStripMenuItem("Help");
+
+        helpMenu.DropDownItems.Add("License", null, (_, _) => ShowLicenseDialog());
+        helpMenu.DropDownItems.Add(new ToolStripSeparator());
+        helpMenu.DropDownItems.Add($"Author: Psyern");
+        helpMenu.DropDownItems.Add("Steam Profile", null, (_, _) => OpenUrl("https://steamcommunity.com/profiles/76561198043039918/"));
+        helpMenu.DropDownItems.Add("Discord", null, (_, _) => OpenUrl("https://discordapp.com/users/408389346882748418"));
+        helpMenu.DropDownItems.Add(new ToolStripSeparator());
+        helpMenu.DropDownItems.Add($"Version: {AppVersion}");
+
+        // Make info-only items non-clickable
+        foreach (ToolStripItem item in helpMenu.DropDownItems)
+        {
+            if (item is ToolStripMenuItem mi &&
+                (mi.Text?.StartsWith("Author:") == true || mi.Text?.StartsWith("Version:") == true))
+                item.Enabled = false;
+        }
+
+        menuStrip.Items.Add(helpMenu);
+
         statusStrip = new StatusStrip { Name = "statusStrip" };
         lblStatus = new ToolStripStatusLabel { Name = "lblStatus", Text = "Ready" };
         statusStrip.Items.Add(lblStatus);
@@ -536,6 +564,8 @@ public sealed class MainForm : Form
 
         Controls.Add(splitMain);
         Controls.Add(statusStrip);
+        MainMenuStrip = menuStrip;
+        Controls.Add(menuStrip);
     }
 
     private void AddNumericRow(string label, NumericUpDown nud, int min, int max)
@@ -678,6 +708,79 @@ public sealed class MainForm : Form
     }
 
     private void SetStatus(string message) => lblStatus.Text = message;
+
+    private void ShowLicenseDialog()
+    {
+        const string licenseText = """
+            MIT License
+
+            Copyright (c) 2026 Psyern
+
+            Permission is hereby granted, free of charge, to any person obtaining a copy
+            of this software and associated documentation files (the "Software"), to deal
+            in the Software without restriction, including without limitation the rights
+            to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+            copies of the Software, and to permit persons to whom the Software is
+            furnished to do so, subject to the following conditions:
+
+            The above copyright notice and this permission notice shall be included in all
+            copies or substantial portions of the Software.
+
+            THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+            IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+            FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+            AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+            LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+            OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+            SOFTWARE.
+            """;
+
+        var form = new Form
+        {
+            Text = "License – MIT",
+            Width = 560,
+            Height = 420,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterParent,
+            MaximizeBox = false,
+            MinimizeBox = false
+        };
+
+        var txt = new TextBox
+        {
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            Dock = DockStyle.Fill,
+            Text = licenseText,
+            Font = new Font("Consolas", 9f)
+        };
+
+        var btnClose = new Button
+        {
+            Text = "Close",
+            Dock = DockStyle.Bottom,
+            Height = 32,
+            DialogResult = DialogResult.OK
+        };
+
+        if (DarkModeHelper.IsDark)
+            DarkModeHelper.Apply(form, true);
+
+        form.Controls.Add(txt);
+        form.Controls.Add(btnClose);
+        form.AcceptButton = btnClose;
+        form.ShowDialog(this);
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch { /* ignore if browser can't be opened */ }
+    }
 
     private void ApplyFilter()
     {
