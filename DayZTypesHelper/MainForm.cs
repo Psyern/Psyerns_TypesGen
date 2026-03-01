@@ -10,21 +10,17 @@ public sealed class MainForm : Form
     private TextBox txtSearch = null!;
     private ListBox lstClasses = null!;
     private Panel pnlLeftButtons = null!;
-    private Button btnImportClassList = null!;
-    private Button btnImportCfgLimits = null!;
-    private Button btnImportTypesXml = null!;
-    private Button btnImportMarketJson = null!;
-    private Button btnCreateMarketJson = null!;
+    private Button btnImport = null!;
+    private ContextMenuStrip mnuImport = null!;
     private Button btnClearList = null!;
 
     // ── Right side: file row ──────────────────────────────────────
     private Panel pnlRight = null!;
     private Panel pnlFile = null!;
-    private Button btnSelectDestination = null!;
-    private Button btnSelectMarketDest = null!;
+    private Button btnExport = null!;
+    private ContextMenuStrip mnuExport = null!;
     private Label lblDestination = null!;
     private Label lblMarketDest = null!;
-    private Button btnExportNow = null!;
     private CheckBox chkExportAll = null!;
     private Button btnUndo = null!;
     private Button btnRedo = null!;
@@ -143,65 +139,34 @@ public sealed class MainForm : Form
             Padding = new Padding(4)
         };
 
-        btnImportClassList = new Button
-        {
-            Name = "btnImportClassList",
-            Text = "Import Classnamelist",
-            Width = 150,
-            Height = 26,
-            Margin = new Padding(2)
-        };
+        // ── Import dropdown ──
+        mnuImport = new ContextMenuStrip { Name = "mnuImport" };
+        mnuImport.Items.Add("Import Classnamelist (.txt)", null, (_, _) => ImportClassList());
+        mnuImport.Items.Add("Import cfglimitsdefinition.xml", null, (_, _) => ImportCfgLimits());
+        mnuImport.Items.Add("Import types.xml", null, (_, _) => ImportTypesXml());
+        mnuImport.Items.Add(new ToolStripSeparator());
+        mnuImport.Items.Add("Import Market JSON", null, (_, _) => ImportMarketJson());
 
-        btnImportCfgLimits = new Button
+        btnImport = new Button
         {
-            Name = "btnImportCfgLimits",
-            Text = "Import cfglimits.xml",
-            Width = 150,
-            Height = 26,
-            Margin = new Padding(2)
-        };
-
-        btnImportTypesXml = new Button
-        {
-            Name = "btnImportTypesXml",
-            Text = "Import types.xml",
-            Width = 150,
-            Height = 26,
-            Margin = new Padding(2)
-        };
-
-        btnImportMarketJson = new Button
-        {
-            Name = "btnImportMarketJson",
-            Text = "Import Market JSON",
-            Width = 150,
-            Height = 26,
-            Margin = new Padding(2)
-        };
-
-        btnCreateMarketJson = new Button
-        {
-            Name = "btnCreateMarketJson",
-            Text = "Create Market JSON",
-            Width = 150,
-            Height = 26,
-            Margin = new Padding(2)
+            Name = "btnImport",
+            Text = "📥 Import ▾",
+            Width = 120,
+            Height = 28,
+            Margin = new Padding(2),
+            ContextMenuStrip = mnuImport
         };
 
         btnClearList = new Button
         {
             Name = "btnClearList",
             Text = "Clear List",
-            Width = 150,
-            Height = 26,
+            Width = 100,
+            Height = 28,
             Margin = new Padding(2)
         };
 
-        flowLeftButtons.Controls.Add(btnImportClassList);
-        flowLeftButtons.Controls.Add(btnImportCfgLimits);
-        flowLeftButtons.Controls.Add(btnImportTypesXml);
-        flowLeftButtons.Controls.Add(btnImportMarketJson);
-        flowLeftButtons.Controls.Add(btnCreateMarketJson);
+        flowLeftButtons.Controls.Add(btnImport);
         flowLeftButtons.Controls.Add(btnClearList);
         pnlLeftButtons.Controls.Add(flowLeftButtons);
 
@@ -233,31 +198,23 @@ public sealed class MainForm : Form
             Padding = new Padding(4)
         };
 
-        btnSelectDestination = new Button
-        {
-            Name = "btnSelectDestination",
-            Text = "Dest. types.xml",
-            Width = 140,
-            Height = 28,
-            Margin = new Padding(2)
-        };
+        // ── Export dropdown ──
+        mnuExport = new ContextMenuStrip { Name = "mnuExport" };
+        mnuExport.Items.Add("Set Destination types.xml", null, (_, _) => SelectDestination());
+        mnuExport.Items.Add("Set Destination Market JSON", null, (_, _) => SelectMarketDestination());
+        mnuExport.Items.Add(new ToolStripSeparator());
+        mnuExport.Items.Add("Create new Market JSON from Selected", null, (_, _) => CreateMarketJsonFromSelected());
+        mnuExport.Items.Add(new ToolStripSeparator());
+        mnuExport.Items.Add("Export now", null, (_, _) => ExportNow());
 
-        btnSelectMarketDest = new Button
+        btnExport = new Button
         {
-            Name = "btnSelectMarketDest",
-            Text = "Dest. Market JSON",
-            Width = 150,
+            Name = "btnExport",
+            Text = "📤 Export ▾",
+            Width = 120,
             Height = 28,
-            Margin = new Padding(2)
-        };
-
-        btnExportNow = new Button
-        {
-            Name = "btnExportNow",
-            Text = "Export now",
-            Width = 110,
-            Height = 28,
-            Margin = new Padding(2)
+            Margin = new Padding(2),
+            ContextMenuStrip = mnuExport
         };
 
         chkExportAll = new CheckBox
@@ -310,9 +267,7 @@ public sealed class MainForm : Form
             Margin = new Padding(2, 6, 2, 2)
         };
 
-        flowButtons.Controls.Add(btnSelectDestination);
-        flowButtons.Controls.Add(btnSelectMarketDest);
-        flowButtons.Controls.Add(btnExportNow);
+        flowButtons.Controls.Add(btnExport);
         flowButtons.Controls.Add(chkExportAll);
         flowButtons.Controls.Add(btnUndo);
         flowButtons.Controls.Add(btnRedo);
@@ -535,15 +490,11 @@ public sealed class MainForm : Form
         txtSearch.TextChanged += (_, _) => ApplyFilter();
         lstClasses.SelectedIndexChanged += (_, _) => OnClassSelectionChanged();
 
-        btnImportClassList.Click += (_, _) => ImportClassList();
-        btnImportCfgLimits.Click += (_, _) => ImportCfgLimits();
-        btnImportTypesXml.Click += (_, _) => ImportTypesXml();
-        btnImportMarketJson.Click += (_, _) => ImportMarketJson();
-        btnCreateMarketJson.Click += (_, _) => CreateMarketJsonFromSelected();
+        // Dropdown menus
+        btnImport.Click += (_, _) => mnuImport.Show(btnImport, new Point(0, btnImport.Height));
+        btnExport.Click += (_, _) => mnuExport.Show(btnExport, new Point(0, btnExport.Height));
+
         btnClearList.Click += (_, _) => ClearList();
-        btnSelectDestination.Click += (_, _) => SelectDestination();
-        btnSelectMarketDest.Click += (_, _) => SelectMarketDestination();
-        btnExportNow.Click += (_, _) => ExportNow();
         chkExportAll.CheckedChanged += (_, _) => OnEditorChanged();
 
         btnUndo.Click += (_, _) => PerformUndo();

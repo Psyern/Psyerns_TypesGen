@@ -24,6 +24,58 @@ public static class DarkModeHelper
     {
         IsDark = dark;
         ApplyRecursive(root, dark);
+
+        // ContextMenuStrips are components, not child controls — style them separately.
+        ApplyContextMenuStrips(root, dark);
+    }
+
+    /// <summary>Style all ContextMenuStrips attached to buttons/controls in the tree.</summary>
+    private static void ApplyContextMenuStrips(Control root, bool dark)
+    {
+        foreach (Control ctrl in root.Controls)
+        {
+            if (ctrl.ContextMenuStrip is { } cms)
+                ApplyToolStrip(cms, dark);
+
+            ApplyContextMenuStrips(ctrl, dark);
+        }
+    }
+
+    public static void ApplyToolStrip(ToolStrip strip, bool dark)
+    {
+        strip.BackColor = dark ? DarkBgAlt : SystemColors.Control;
+        strip.ForeColor = dark ? DarkFg : LightFg;
+        strip.Renderer = dark
+            ? new ToolStripProfessionalRenderer(new DarkColorTable())
+            : new ToolStripProfessionalRenderer();
+
+        foreach (ToolStripItem item in strip.Items)
+        {
+            item.BackColor = dark ? DarkBgAlt : SystemColors.Control;
+            item.ForeColor = dark ? DarkFg : LightFg;
+        }
+    }
+
+    /// <summary>Custom colour table for dark context menus.</summary>
+    private sealed class DarkColorTable : ProfessionalColorTable
+    {
+        public override Color MenuBorder => DarkBorder;
+        public override Color MenuItemBorder => DarkAccent;
+        public override Color MenuItemSelected => Color.FromArgb(62, 62, 66);
+        public override Color MenuItemSelectedGradientBegin => Color.FromArgb(62, 62, 66);
+        public override Color MenuItemSelectedGradientEnd => Color.FromArgb(62, 62, 66);
+        public override Color MenuStripGradientBegin => DarkBgAlt;
+        public override Color MenuStripGradientEnd => DarkBgAlt;
+        public override Color MenuItemPressedGradientBegin => DarkAccent;
+        public override Color MenuItemPressedGradientEnd => DarkAccent;
+        public override Color ImageMarginGradientBegin => DarkBgAlt;
+        public override Color ImageMarginGradientMiddle => DarkBgAlt;
+        public override Color ImageMarginGradientEnd => DarkBgAlt;
+        public override Color SeparatorDark => DarkBorder;
+        public override Color SeparatorLight => DarkBorder;
+        public override Color ToolStripDropDownBackground => DarkBgAlt;
+        public override Color CheckBackground => DarkAccent;
+        public override Color CheckSelectedBackground => DarkAccent;
     }
 
     private static void ApplyRecursive(Control ctrl, bool dark)
