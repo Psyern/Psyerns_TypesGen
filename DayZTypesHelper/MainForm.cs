@@ -917,11 +917,10 @@ public sealed class MainForm : Form
         try
         {
             var items = MarketJsonService.ImportFromFile(path);
-            if (items.Count == 0)
-            {
-                SetStatus("No items found in Market JSON.");
-                return;
-            }
+
+            // Even if Items is empty, load the file as market destination
+            _marketService.SetDestination(path);
+            lblMarketDest.Text = $"Market JSON: {path}";
 
             var merged = new HashSet<string>(_allClasses, StringComparer.OrdinalIgnoreCase);
             foreach (var item in items)
@@ -940,7 +939,11 @@ public sealed class MainForm : Form
             _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
             ApplyFilter();
             tabEditor.SelectedTab = tabMarket;
-            SetStatus($"Imported {items.Count} items from Market JSON.");
+
+            if (items.Count == 0)
+                SetStatus($"Market JSON loaded (0 items). Destination set → {Path.GetFileName(path)}");
+            else
+                SetStatus($"Imported {items.Count} items from Market JSON.");
         }
         catch (Exception ex)
         {
@@ -968,11 +971,11 @@ public sealed class MainForm : Form
         try
         {
             var items = TraderJsonService.ImportFromFile(path);
-            if (items.Count == 0)
-            {
-                SetStatus("No items found in Trader JSON.");
-                return;
-            }
+
+            // Even if Items is empty, load the file as trader destination
+            // so the user can add items to it.
+            _traderService.SetDestination(path);
+            lblTraderDest.Text = $"Trader JSON: {path}";
 
             var merged = new HashSet<string>(_allClasses, StringComparer.OrdinalIgnoreCase);
             foreach (var item in items)
@@ -991,7 +994,11 @@ public sealed class MainForm : Form
             _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
             ApplyFilter();
             tabEditor.SelectedTab = tabTrader;
-            SetStatus($"Imported {items.Count} items from Trader JSON.");
+
+            if (items.Count == 0)
+                SetStatus($"Trader JSON loaded (0 items). Destination set → {Path.GetFileName(path)}");
+            else
+                SetStatus($"Imported {items.Count} items from Trader JSON.");
         }
         catch (Exception ex)
         {
