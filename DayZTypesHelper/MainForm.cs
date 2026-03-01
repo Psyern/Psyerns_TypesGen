@@ -525,11 +525,11 @@ public sealed class MainForm : Form
         clbUsage.ItemCheck += (_, _) => BeginInvoke(OnEditorChanged);
         clbValue.ItemCheck += (_, _) => BeginInvoke(OnEditorChanged);
 
-        numMaxPrice.ValueChanged += (_, _) => OnEditorChanged();
-        numMinPrice.ValueChanged += (_, _) => OnEditorChanged();
+        numMaxPrice.ValueChanged += (_, _) => OnPriceChanged(isMax: true);
+        numMinPrice.ValueChanged += (_, _) => OnPriceChanged(isMax: false);
         numSellPricePercent.ValueChanged += (_, _) => OnEditorChanged();
-        numMaxStock.ValueChanged += (_, _) => OnEditorChanged();
-        numMinStock.ValueChanged += (_, _) => OnEditorChanged();
+        numMaxStock.ValueChanged += (_, _) => OnStockChanged(isMax: true);
+        numMinStock.ValueChanged += (_, _) => OnStockChanged(isMax: false);
         numQuantityPercent.ValueChanged += (_, _) => OnEditorChanged();
         txtSpawnAttachments.TextChanged += (_, _) => OnEditorChanged();
         txtVariants.TextChanged += (_, _) => OnEditorChanged();
@@ -1390,6 +1390,60 @@ public sealed class MainForm : Form
         else
         {
             _lastValidQuantMax = value;
+        }
+
+        OnEditorChanged();
+    }
+
+    /// <summary>Ensures MinPriceThreshold is never greater than MaxPriceThreshold.</summary>
+    private void OnPriceChanged(bool isMax)
+    {
+        if (_loadingUi) return;
+
+        var minVal = (int)numMinPrice.Value;
+        var maxVal = (int)numMaxPrice.Value;
+
+        if (minVal > maxVal)
+        {
+            _loadingUi = true;
+            if (isMax)
+            {
+                // User lowered Max below Min → pull Min down
+                numMinPrice.Value = numMaxPrice.Value;
+            }
+            else
+            {
+                // User raised Min above Max → push Max up
+                numMaxPrice.Value = numMinPrice.Value;
+            }
+            _loadingUi = false;
+        }
+
+        OnEditorChanged();
+    }
+
+    /// <summary>Ensures MinStockThreshold is never greater than MaxStockThreshold.</summary>
+    private void OnStockChanged(bool isMax)
+    {
+        if (_loadingUi) return;
+
+        var minVal = (int)numMinStock.Value;
+        var maxVal = (int)numMaxStock.Value;
+
+        if (minVal > maxVal)
+        {
+            _loadingUi = true;
+            if (isMax)
+            {
+                // User lowered Max below Min → pull Min down
+                numMinStock.Value = numMaxStock.Value;
+            }
+            else
+            {
+                // User raised Min above Max → push Max up
+                numMaxStock.Value = numMinStock.Value;
+            }
+            _loadingUi = false;
         }
 
         OnEditorChanged();
