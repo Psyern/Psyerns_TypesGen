@@ -14,6 +14,7 @@ public sealed class MainForm : Form
     private Button btnImportCfgLimits = null!;
     private Button btnImportTypesXml = null!;
     private Button btnImportMarketJson = null!;
+    private Button btnCreateMarketJson = null!;
     private Button btnClearList = null!;
 
     // ── Right side: file row ──────────────────────────────────────
@@ -178,6 +179,15 @@ public sealed class MainForm : Form
             Margin = new Padding(2)
         };
 
+        btnCreateMarketJson = new Button
+        {
+            Name = "btnCreateMarketJson",
+            Text = "Create Market JSON",
+            Width = 150,
+            Height = 26,
+            Margin = new Padding(2)
+        };
+
         btnClearList = new Button
         {
             Name = "btnClearList",
@@ -191,6 +201,7 @@ public sealed class MainForm : Form
         flowLeftButtons.Controls.Add(btnImportCfgLimits);
         flowLeftButtons.Controls.Add(btnImportTypesXml);
         flowLeftButtons.Controls.Add(btnImportMarketJson);
+        flowLeftButtons.Controls.Add(btnCreateMarketJson);
         flowLeftButtons.Controls.Add(btnClearList);
         pnlLeftButtons.Controls.Add(flowLeftButtons);
 
@@ -528,6 +539,7 @@ public sealed class MainForm : Form
         btnImportCfgLimits.Click += (_, _) => ImportCfgLimits();
         btnImportTypesXml.Click += (_, _) => ImportTypesXml();
         btnImportMarketJson.Click += (_, _) => ImportMarketJson();
+        btnCreateMarketJson.Click += (_, _) => CreateMarketJsonFromSelected();
         btnClearList.Click += (_, _) => ClearList();
         btnSelectDestination.Click += (_, _) => SelectDestination();
         btnSelectMarketDest.Click += (_, _) => SelectMarketDestination();
@@ -869,6 +881,110 @@ public sealed class MainForm : Form
             MessageBox.Show(this, ex.Message, "Market destination error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus("Market destination selection failed.");
         }
+    }
+
+    private void CreateMarketJsonFromSelected()
+    {
+        // Gather selected classnames (or all if none selected)
+        var selected = lstClasses.SelectedItems.Cast<string>().ToList();
+        if (selected.Count == 0)
+        {
+            // Nothing selected → offer to use the entire list
+            if (_allClasses.Count == 0)
+            {
+                MessageBox.Show(this, "No classnames loaded. Import a classlist or types.xml first.",
+                    "Create Market JSON", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var useAll = MessageBox.Show(this,
+                $"No items selected.\nCreate Market JSON for all {_allClasses.Count} classnames in the list?",
+                "Create Market JSON", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (useAll != DialogResult.Yes) return;
+            selected = new List<string>(_allClasses);
+        }
+
+        // Ask for display name
+        var displayName = PromptInput("Market Display Name",
+            "Enter a display name for this market category\n(e.g. #STR_EXPANSION_MARKET_CATEGORY_AMMO):",
+            "NewMarket");
+
+        if (displayName == null) return; // cancelled
+
+        // Choose save location
+        using var sfd = new SaveFileDialog
+        {
+            Title = "Save new Market JSON file",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            FileName = $"{displayName.Replace("#", "").Replace(" ", "_")}.json"
+        };
+
+        if (sfd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            // Build a fresh market service for the new file
+            _marketService.SetDestination(sfd.FileName);
+            lblMarketDest.Text = $"Market JSON: {sfd.FileName}";
+
+            // Set display name on the root node
+            _marketService.SetDisplayName(displayName);
+
+            // Create default market items for each selected classname
+            var count = 0;
+            foreach (var className in selected)
+            {
+                if (!_marketCache.TryGetValue(className, out var mkt))
+                {
+                    mkt = MarketItem.CreateDefault(className);
+                }
+
+                mkt.IsDirty = true;
+                _marketCache[className] = mkt;
+                _marketService.Upsert(mkt);
+                count++;
+            }
+
+            _marketService.Save();
+
+            if (!string.IsNullOrWhiteSpace(_currentClassname))
+                LoadClassIntoUi(_currentClassname);
+
+            SetStatus($"Created Market JSON with {count} items → {sfd.FileName}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Create Market JSON error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Create Market JSON failed.");
+        }
+    }
+
+    /// <summary>Simple input prompt dialog.</summary>
+    private static string? PromptInput(string title, string label, string defaultValue)
+    {
+        var form = new Form
+        {
+            Text = title,
+            Width = 440,
+            Height = 180,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterParent,
+            MaximizeBox = false,
+            MinimizeBox = false
+        };
+
+        var lbl = new Label { Left = 12, Top = 12, Width = 400, Text = label, AutoSize = true };
+        var txt = new TextBox { Left = 12, Top = lbl.Bottom + 8, Width = 400, Text = defaultValue };
+        var btnOk = new Button { Text = "OK", Left = 230, Top = txt.Bottom + 12, Width = 85, DialogResult = DialogResult.OK };
+        var btnCancel = new Button { Text = "Cancel", Left = 325, Top = txt.Bottom + 12, Width = 85, DialogResult = DialogResult.Cancel };
+
+        form.Controls.AddRange(new Control[] { lbl, txt, btnOk, btnCancel });
+        form.AcceptButton = btnOk;
+        form.CancelButton = btnCancel;
+
+        return form.ShowDialog() == DialogResult.OK ? txt.Text.Trim() : null;
     }
 
     private void ClearList()

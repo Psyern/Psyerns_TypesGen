@@ -20,6 +20,13 @@ public sealed class MarketJsonService
     /// <summary>Display name from the JSON (e.g. "#STR_EXPANSION_MARKET_CATEGORY_AMMO").</summary>
     public string DisplayName => _rootNode?["DisplayName"]?.GetValue<string>() ?? "(unknown)";
 
+    /// <summary>Set the display name on the root JSON object.</summary>
+    public void SetDisplayName(string name)
+    {
+        if (_rootNode != null)
+            _rootNode["DisplayName"] = name;
+    }
+
     /// <summary>Load a market JSON file and return all items.</summary>
     public List<MarketItem> Load(string path)
     {
