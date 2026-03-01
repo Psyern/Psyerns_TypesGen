@@ -13,12 +13,16 @@ public sealed class MainForm : Form
     private Button btnImportClassList = null!;
     private Button btnImportCfgLimits = null!;
     private Button btnImportTypesXml = null!;
+    private Button btnImportMarketJson = null!;
+    private Button btnClearList = null!;
 
     // ── Right side: file row ──────────────────────────────────────
     private Panel pnlRight = null!;
     private Panel pnlFile = null!;
     private Button btnSelectDestination = null!;
+    private Button btnSelectMarketDest = null!;
     private Label lblDestination = null!;
+    private Label lblMarketDest = null!;
     private Button btnExportNow = null!;
     private CheckBox chkExportAll = null!;
     private Button btnUndo = null!;
@@ -53,14 +57,28 @@ public sealed class MainForm : Form
     private CheckedListBox clbUsage = null!;
     private CheckedListBox clbValue = null!;
 
+    // ── Market editor ─────────────────────────────────────────────
+    private GroupBox grpMarket = null!;
+    private TableLayoutPanel tlpMarket = null!;
+    private NumericUpDown numMaxPrice = null!;
+    private NumericUpDown numMinPrice = null!;
+    private NumericUpDown numSellPricePercent = null!;
+    private NumericUpDown numMaxStock = null!;
+    private NumericUpDown numMinStock = null!;
+    private NumericUpDown numQuantityPercent = null!;
+    private TextBox txtSpawnAttachments = null!;
+    private TextBox txtVariants = null!;
+
     private StatusStrip statusStrip = null!;
     private ToolStripStatusLabel lblStatus = null!;
 
     // ── Services / state ──────────────────────────────────────────
     private readonly System.Windows.Forms.Timer _autosaveTimer = new() { Interval = 500 };
     private readonly TypesXmlService _typesService = new();
+    private readonly MarketJsonService _marketService = new();
     private readonly UndoRedoService _undoRedo = new();
     private readonly Dictionary<string, TypeEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, MarketItem> _marketCache = new(StringComparer.OrdinalIgnoreCase);
 
     private List<string> _allClasses = new();
     private string? _currentClassname;
@@ -71,7 +89,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "DayZ Types Helper";
+        Text = "Psyerns Types Helper";
         Width = 1200;
         Height = 800;
         StartPosition = FormStartPosition.CenterScreen;
@@ -111,42 +129,70 @@ public sealed class MainForm : Form
         pnlLeftButtons = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 74
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
+        };
+
+        var flowLeftButtons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
+            Padding = new Padding(4)
         };
 
         btnImportClassList = new Button
         {
             Name = "btnImportClassList",
             Text = "Import Classnamelist",
-            Left = 8,
-            Top = 8,
             Width = 150,
-            Height = 26
+            Height = 26,
+            Margin = new Padding(2)
         };
 
         btnImportCfgLimits = new Button
         {
             Name = "btnImportCfgLimits",
             Text = "Import cfglimits.xml",
-            Left = 166,
-            Top = 8,
             Width = 150,
-            Height = 26
+            Height = 26,
+            Margin = new Padding(2)
         };
 
         btnImportTypesXml = new Button
         {
             Name = "btnImportTypesXml",
             Text = "Import types.xml",
-            Left = 8,
-            Top = 40,
             Width = 150,
-            Height = 26
+            Height = 26,
+            Margin = new Padding(2)
         };
 
-        pnlLeftButtons.Controls.Add(btnImportClassList);
-        pnlLeftButtons.Controls.Add(btnImportCfgLimits);
-        pnlLeftButtons.Controls.Add(btnImportTypesXml);
+        btnImportMarketJson = new Button
+        {
+            Name = "btnImportMarketJson",
+            Text = "Import Market JSON",
+            Width = 150,
+            Height = 26,
+            Margin = new Padding(2)
+        };
+
+        btnClearList = new Button
+        {
+            Name = "btnClearList",
+            Text = "Clear List",
+            Width = 150,
+            Height = 26,
+            Margin = new Padding(2)
+        };
+
+        flowLeftButtons.Controls.Add(btnImportClassList);
+        flowLeftButtons.Controls.Add(btnImportCfgLimits);
+        flowLeftButtons.Controls.Add(btnImportTypesXml);
+        flowLeftButtons.Controls.Add(btnImportMarketJson);
+        flowLeftButtons.Controls.Add(btnClearList);
+        pnlLeftButtons.Controls.Add(flowLeftButtons);
 
         splitMain.Panel1.Controls.Add(lstClasses);
         splitMain.Panel1.Controls.Add(txtSearch);
@@ -161,112 +207,145 @@ public sealed class MainForm : Form
         pnlFile = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 104
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(4)
+        };
+
+        // ── Row 1: Buttons (FlowLayout, wraps automatically) ──
+        var flowButtons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
+            Padding = new Padding(4)
         };
 
         btnSelectDestination = new Button
         {
             Name = "btnSelectDestination",
-            Text = "Select destination types.xml",
-            Left = 8,
-            Top = 8,
-            Width = 220,
-            Height = 28
+            Text = "Dest. types.xml",
+            Width = 140,
+            Height = 28,
+            Margin = new Padding(2)
+        };
+
+        btnSelectMarketDest = new Button
+        {
+            Name = "btnSelectMarketDest",
+            Text = "Dest. Market JSON",
+            Width = 150,
+            Height = 28,
+            Margin = new Padding(2)
         };
 
         btnExportNow = new Button
         {
             Name = "btnExportNow",
             Text = "Export now",
-            Left = 238,
-            Top = 8,
             Width = 110,
-            Height = 28
+            Height = 28,
+            Margin = new Padding(2)
         };
 
         chkExportAll = new CheckBox
         {
             Name = "chkExportAll",
             Text = "Export all",
-            Left = 360,
-            Top = 12,
-            Width = 100,
-            Checked = false
+            Width = 90,
+            Height = 28,
+            Checked = false,
+            Margin = new Padding(2, 6, 2, 2)
         };
 
         btnUndo = new Button
         {
             Name = "btnUndo",
             Text = "↩ Undo",
-            Left = 470,
-            Top = 8,
             Width = 80,
             Height = 28,
-            Enabled = false
+            Enabled = false,
+            Margin = new Padding(2)
         };
 
         btnRedo = new Button
         {
             Name = "btnRedo",
             Text = "↪ Redo",
-            Left = 558,
-            Top = 8,
             Width = 80,
             Height = 28,
-            Enabled = false
+            Enabled = false,
+            Margin = new Padding(2)
         };
 
         btnBulkApply = new Button
         {
             Name = "btnBulkApply",
             Text = "Bulk Apply to Selected",
-            Left = 648,
-            Top = 8,
             Width = 170,
             Height = 28,
-            Enabled = false
+            Enabled = false,
+            Margin = new Padding(2)
         };
 
         chkDarkMode = new CheckBox
         {
             Name = "chkDarkMode",
             Text = "Dark Mode",
-            Left = 830,
-            Top = 12,
             Width = 100,
-            Checked = false
+            Height = 28,
+            Checked = false,
+            Margin = new Padding(2, 6, 2, 2)
         };
 
+        flowButtons.Controls.Add(btnSelectDestination);
+        flowButtons.Controls.Add(btnSelectMarketDest);
+        flowButtons.Controls.Add(btnExportNow);
+        flowButtons.Controls.Add(chkExportAll);
+        flowButtons.Controls.Add(btnUndo);
+        flowButtons.Controls.Add(btnRedo);
+        flowButtons.Controls.Add(btnBulkApply);
+        flowButtons.Controls.Add(chkDarkMode);
+
+        // ── Row 2: Destination label ──
         lblDestination = new Label
         {
             Name = "lblDestination",
-            Text = "Destination: (none)",
-            Left = 8,
-            Top = 44,
-            Width = 900,
-            AutoEllipsis = true
+            Text = "Types.xml: (none)",
+            Dock = DockStyle.Top,
+            AutoEllipsis = true,
+            Padding = new Padding(6, 2, 6, 0),
+            Height = 18
         };
 
+        lblMarketDest = new Label
+        {
+            Name = "lblMarketDest",
+            Text = "Market JSON: (none)",
+            Dock = DockStyle.Top,
+            AutoEllipsis = true,
+            Padding = new Padding(6, 0, 6, 2),
+            Height = 18
+        };
+
+        // ── Row 3: Hint label ──
         var lblMultiHint = new Label
         {
             Text = "Tip: Hold Ctrl/Shift in classlist for multi-select → then 'Bulk Apply'",
-            Left = 8,
-            Top = 68,
-            Width = 700,
+            Dock = DockStyle.Top,
             AutoSize = false,
+            Height = 20,
+            Padding = new Padding(6, 0, 6, 4),
             ForeColor = Color.Gray,
             Font = new Font(Font.FontFamily, 8f, FontStyle.Italic)
         };
 
-        pnlFile.Controls.Add(btnSelectDestination);
-        pnlFile.Controls.Add(btnExportNow);
-        pnlFile.Controls.Add(chkExportAll);
-        pnlFile.Controls.Add(btnUndo);
-        pnlFile.Controls.Add(btnRedo);
-        pnlFile.Controls.Add(btnBulkApply);
-        pnlFile.Controls.Add(chkDarkMode);
-        pnlFile.Controls.Add(lblDestination);
+        // Add in reverse order (Dock = Top stacks bottom-up)
         pnlFile.Controls.Add(lblMultiHint);
+        pnlFile.Controls.Add(lblMarketDest);
+        pnlFile.Controls.Add(lblDestination);
+        pnlFile.Controls.Add(flowButtons);
 
         tlpEditor = new TableLayoutPanel
         {
@@ -283,8 +362,8 @@ public sealed class MainForm : Form
         numLifetime = new NumericUpDown { Name = "numLifetime" };
         numRestock = new NumericUpDown { Name = "numRestock" };
         numMin = new NumericUpDown { Name = "numMin" };
-        numQuantMin = new NumericUpDown { Name = "numQuantMin", Value = -1, Tag = -1 };
-        numQuantMax = new NumericUpDown { Name = "numQuantMax", Value = -1, Tag = -1 };
+        numQuantMin = new NumericUpDown { Name = "numQuantMin", Minimum = -1, Value = -1, Tag = -1 };
+        numQuantMax = new NumericUpDown { Name = "numQuantMax", Minimum = -1, Value = -1, Tag = -1 };
         numCost = new NumericUpDown { Name = "numCost" };
 
         AddNumericRow("nominal", numNominal, 0, 1_000_000);
@@ -326,6 +405,59 @@ public sealed class MainForm : Form
         AddFullWidthRow(grpTags);
         AddFullWidthRow(grpUsageFlags);
         AddFullWidthRow(grpValueFlags);
+
+        // ── Market Editor ─────────────────────────────────────────
+        grpMarket = new GroupBox
+        {
+            Name = "grpMarket",
+            Text = "Market (Expansion JSON)",
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new Padding(8)
+        };
+
+        tlpMarket = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            ColumnCount = 2,
+            Padding = new Padding(4)
+        };
+        tlpMarket.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        tlpMarket.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        numMaxPrice = new NumericUpDown { Name = "numMaxPrice" };
+        numMinPrice = new NumericUpDown { Name = "numMinPrice" };
+        numSellPricePercent = new NumericUpDown { Name = "numSellPricePercent", Minimum = -1 };
+        numMaxStock = new NumericUpDown { Name = "numMaxStock" };
+        numMinStock = new NumericUpDown { Name = "numMinStock" };
+        numQuantityPercent = new NumericUpDown { Name = "numQuantityPercent", Minimum = -1 };
+
+        AddMarketRow("MaxPriceThreshold", numMaxPrice, 0, 10_000_000);
+        AddMarketRow("MinPriceThreshold", numMinPrice, 0, 10_000_000);
+        AddMarketRow("SellPricePercent", numSellPricePercent, -1, 100);
+        AddMarketRow("MaxStockThreshold", numMaxStock, 0, 10_000_000);
+        AddMarketRow("MinStockThreshold", numMinStock, 0, 10_000_000);
+        AddMarketRow("QuantityPercent", numQuantityPercent, -1, 100);
+
+        // SpawnAttachments (comma-separated)
+        var lblSpawn = new Label { Text = "SpawnAttachments", AutoSize = true, Dock = DockStyle.Fill, Padding = new Padding(0, 6, 0, 0) };
+        txtSpawnAttachments = new TextBox { Name = "txtSpawnAttachments", Dock = DockStyle.Fill, PlaceholderText = "comma-separated classnames" };
+        var spawnRow = tlpMarket.RowCount++;
+        tlpMarket.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        tlpMarket.Controls.Add(lblSpawn, 0, spawnRow);
+        tlpMarket.Controls.Add(txtSpawnAttachments, 1, spawnRow);
+
+        // Variants (comma-separated)
+        var lblVariants = new Label { Text = "Variants", AutoSize = true, Dock = DockStyle.Fill, Padding = new Padding(0, 6, 0, 0) };
+        txtVariants = new TextBox { Name = "txtVariants", Dock = DockStyle.Fill, PlaceholderText = "comma-separated classnames" };
+        var varRow = tlpMarket.RowCount++;
+        tlpMarket.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        tlpMarket.Controls.Add(lblVariants, 0, varRow);
+        tlpMarket.Controls.Add(txtVariants, 1, varRow);
+
+        grpMarket.Controls.Add(tlpMarket);
+        AddFullWidthRow(grpMarket);
 
         statusStrip = new StatusStrip { Name = "statusStrip" };
         lblStatus = new ToolStripStatusLabel { Name = "lblStatus", Text = "Ready" };
@@ -371,6 +503,22 @@ public sealed class MainForm : Form
         tlpEditor.SetColumnSpan(control, 2);
     }
 
+    private void AddMarketRow(string label, NumericUpDown nud, int min, int max)
+    {
+        var row = tlpMarket.RowCount++;
+        tlpMarket.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var lbl = new Label { Text = label, AutoSize = true, Dock = DockStyle.Fill, Padding = new Padding(0, 6, 0, 0) };
+        nud.Minimum = min;
+        nud.Maximum = max;
+        nud.DecimalPlaces = 0;
+        nud.Dock = DockStyle.Left;
+        nud.Width = 160;
+
+        tlpMarket.Controls.Add(lbl, 0, row);
+        tlpMarket.Controls.Add(nud, 1, row);
+    }
+
     private void WireEvents()
     {
         txtSearch.TextChanged += (_, _) => ApplyFilter();
@@ -379,7 +527,10 @@ public sealed class MainForm : Form
         btnImportClassList.Click += (_, _) => ImportClassList();
         btnImportCfgLimits.Click += (_, _) => ImportCfgLimits();
         btnImportTypesXml.Click += (_, _) => ImportTypesXml();
+        btnImportMarketJson.Click += (_, _) => ImportMarketJson();
+        btnClearList.Click += (_, _) => ClearList();
         btnSelectDestination.Click += (_, _) => SelectDestination();
+        btnSelectMarketDest.Click += (_, _) => SelectMarketDestination();
         btnExportNow.Click += (_, _) => ExportNow();
         chkExportAll.CheckedChanged += (_, _) => OnEditorChanged();
 
@@ -411,6 +562,15 @@ public sealed class MainForm : Form
         clbUsage.ItemCheck += (_, _) => BeginInvoke(OnEditorChanged);
         clbValue.ItemCheck += (_, _) => BeginInvoke(OnEditorChanged);
 
+        numMaxPrice.ValueChanged += (_, _) => OnEditorChanged();
+        numMinPrice.ValueChanged += (_, _) => OnEditorChanged();
+        numSellPricePercent.ValueChanged += (_, _) => OnEditorChanged();
+        numMaxStock.ValueChanged += (_, _) => OnEditorChanged();
+        numMinStock.ValueChanged += (_, _) => OnEditorChanged();
+        numQuantityPercent.ValueChanged += (_, _) => OnEditorChanged();
+        txtSpawnAttachments.TextChanged += (_, _) => OnEditorChanged();
+        txtVariants.TextChanged += (_, _) => OnEditorChanged();
+
         _autosaveTimer.Tick += (_, _) => AutosaveTick();
 
         // Ctrl+Z / Ctrl+Y keyboard shortcuts
@@ -440,6 +600,7 @@ public sealed class MainForm : Form
                 }
 
                 PersistToXml(force: true);
+                PersistMarket(force: true);
             }
             catch (Exception ex)
             {
@@ -614,6 +775,165 @@ public sealed class MainForm : Form
         MergeIntoCheckedList(clbValue, entries.SelectMany(e => e.ValueFlags));
     }
 
+    private void ImportMarketJson()
+    {
+        using var ofd = new OpenFileDialog
+        {
+            Title = "Import Market JSON",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+        };
+
+        if (ofd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            var items = MarketJsonService.ImportFromFile(ofd.FileName);
+            if (items.Count == 0)
+            {
+                SetStatus("No items found in Market JSON.");
+                return;
+            }
+
+            var merged = new HashSet<string>(_allClasses, StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                _marketCache[item.ClassName] = item;
+                merged.Add(item.ClassName);
+
+                // Also create a types.xml entry if not present
+                if (!_cache.ContainsKey(item.ClassName))
+                {
+                    _cache[item.ClassName] = _typesService.HasDestination
+                        ? (_typesService.TryRead(item.ClassName) ?? TypeEntry.CreateDefault(item.ClassName))
+                        : TypeEntry.CreateDefault(item.ClassName);
+                }
+            }
+
+            _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
+            ApplyFilter();
+            SetStatus($"Imported {items.Count} items from Market JSON.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Import error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Import Market JSON failed.");
+        }
+    }
+
+    private void SelectMarketDestination()
+    {
+        using var sfd = new SaveFileDialog
+        {
+            Title = "Select destination Market JSON",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            FileName = "Market.json"
+        };
+
+        if (sfd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            _marketService.SetDestination(sfd.FileName);
+            lblMarketDest.Text = $"Market JSON: {sfd.FileName}";
+
+            // Read existing items from the destination
+            if (File.Exists(sfd.FileName))
+            {
+                var existing = _marketService.Load(sfd.FileName);
+                foreach (var item in existing)
+                {
+                    if (!_marketCache.ContainsKey(item.ClassName))
+                        _marketCache[item.ClassName] = item;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_currentClassname))
+                LoadClassIntoUi(_currentClassname);
+
+            SetStatus("Market destination set.");
+
+            try
+            {
+                PersistMarket(force: false);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Initial market save warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                SetStatus("Market destination set, but initial sync failed.");
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Market destination error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Market destination selection failed.");
+        }
+    }
+
+    private void ClearList()
+    {
+        var result = MessageBox.Show(this,
+            "Clear the entire class list and cached values?\n\nThis cannot be undone.",
+            "Clear List",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (result != DialogResult.Yes) return;
+
+        _currentClassname = null;
+        _allClasses.Clear();
+        _cache.Clear();
+        _marketCache.Clear();
+        _undoRedo.Clear();
+        _autosaveTimer.Stop();
+
+        lstClasses.Items.Clear();
+        txtSearch.Clear();
+
+        // Reset editor to defaults
+        _loadingUi = true;
+        try
+        {
+            numNominal.Value = 0;
+            numLifetime.Value = 0;
+            numRestock.Value = 0;
+            numMin.Value = 0;
+            numQuantMin.Value = -1;
+            numQuantMax.Value = -1;
+            numCost.Value = 0;
+
+            chkCountInCargo.Checked = false;
+            chkCountInHoarder.Checked = false;
+            chkCountInMap.Checked = false;
+            chkCountInPlayer.Checked = false;
+            chkCrafted.Checked = false;
+            chkDeloot.Checked = false;
+
+            for (int i = 0; i < clbCategories.Items.Count; i++) clbCategories.SetItemChecked(i, false);
+            for (int i = 0; i < clbTags.Items.Count; i++) clbTags.SetItemChecked(i, false);
+            for (int i = 0; i < clbUsage.Items.Count; i++) clbUsage.SetItemChecked(i, false);
+            for (int i = 0; i < clbValue.Items.Count; i++) clbValue.SetItemChecked(i, false);
+
+            numMaxPrice.Value = 0;
+            numMinPrice.Value = 0;
+            numSellPricePercent.Value = -1;
+            numMaxStock.Value = 0;
+            numMinStock.Value = 0;
+            numQuantityPercent.Value = -1;
+            txtSpawnAttachments.Clear();
+            txtVariants.Clear();
+        }
+        finally
+        {
+            _loadingUi = false;
+        }
+
+        UpdateUndoRedoButtons();
+        btnBulkApply.Enabled = false;
+        SetStatus("List cleared.");
+    }
+
     private static void MergeIntoCheckedList(CheckedListBox clb, IEnumerable<string> newItems)
     {
         var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -710,6 +1030,11 @@ public sealed class MainForm : Form
 
         if (result != DialogResult.Yes) return;
 
+        // Get market template if available
+        MarketItem? marketTemplate = null;
+        if (_marketCache.TryGetValue(_currentClassname, out var mktTpl))
+            marketTemplate = mktTpl;
+
         var count = 0;
         foreach (var className in selectedItems)
         {
@@ -725,10 +1050,25 @@ public sealed class MainForm : Form
             entry.CopyFrom(template);
             entry.Name = className; // keep original name
             entry.IsDirty = true;
+
+            // Also bulk-apply market data
+            if (marketTemplate != null)
+            {
+                if (!_marketCache.TryGetValue(className, out var mktEntry))
+                {
+                    mktEntry = MarketItem.CreateDefault(className);
+                    _marketCache[className] = mktEntry;
+                }
+                mktEntry.CopyFrom(marketTemplate);
+                mktEntry.ClassName = className;
+                mktEntry.IsDirty = true;
+            }
+
             count++;
         }
 
         PersistToXml(force: true);
+        PersistMarket(force: true);
         UpdateUndoRedoButtons();
         SetStatus($"Bulk-applied to {count} classnames.");
     }
@@ -796,14 +1136,27 @@ public sealed class MainForm : Form
                 return;
             }
 
-            if (!_typesService.HasDestination)
+            var exported = false;
+
+            if (_typesService.HasDestination)
             {
-                MessageBox.Show(this, "Please select destination types.xml first.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                PersistToXml(force: true);
+                exported = true;
+            }
+
+            if (_marketService.HasFile)
+            {
+                PersistMarket(force: true);
+                exported = true;
+            }
+
+            if (!exported)
+            {
+                MessageBox.Show(this, "Please select a destination types.xml or Market JSON first.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 SetStatus("Export skipped: no destination selected.");
                 return;
             }
 
-            PersistToXml(force: true);
             SetStatus("Exported.");
         }
         catch (Exception ex)
@@ -845,6 +1198,7 @@ public sealed class MainForm : Form
             }
 
             PersistToXml(force: true);
+            PersistMarket(force: true);
 
             _currentClassname = selected;
             LoadClassIntoUi(selected);
@@ -893,6 +1247,30 @@ public sealed class MainForm : Form
             ApplySetToCheckedList(clbTags, entry.Tags);
             ApplySetToCheckedList(clbUsage, entry.UsageFlags);
             ApplySetToCheckedList(clbValue, entry.ValueFlags);
+
+            // ── Market fields ──
+            if (_marketCache.TryGetValue(classname, out var mkt))
+            {
+                numMaxPrice.Value = Clamp(mkt.MaxPriceThreshold, numMaxPrice.Minimum, numMaxPrice.Maximum);
+                numMinPrice.Value = Clamp(mkt.MinPriceThreshold, numMinPrice.Minimum, numMinPrice.Maximum);
+                numSellPricePercent.Value = Clamp(mkt.SellPricePercent, numSellPricePercent.Minimum, numSellPricePercent.Maximum);
+                numMaxStock.Value = Clamp(mkt.MaxStockThreshold, numMaxStock.Minimum, numMaxStock.Maximum);
+                numMinStock.Value = Clamp(mkt.MinStockThreshold, numMinStock.Minimum, numMinStock.Maximum);
+                numQuantityPercent.Value = Clamp(mkt.QuantityPercent, numQuantityPercent.Minimum, numQuantityPercent.Maximum);
+                txtSpawnAttachments.Text = string.Join(", ", mkt.SpawnAttachments);
+                txtVariants.Text = string.Join(", ", mkt.Variants);
+            }
+            else
+            {
+                numMaxPrice.Value = 0;
+                numMinPrice.Value = 0;
+                numSellPricePercent.Value = -1;
+                numMaxStock.Value = 0;
+                numMinStock.Value = 0;
+                numQuantityPercent.Value = -1;
+                txtSpawnAttachments.Clear();
+                txtVariants.Clear();
+            }
         }
         finally
         {
@@ -986,6 +1364,7 @@ public sealed class MainForm : Form
             }
 
             PersistToXml(force: false);
+            PersistMarket(force: false);
             SetStatus("Saved.");
         }
         catch (Exception ex)
@@ -1049,6 +1428,10 @@ public sealed class MainForm : Form
         ReadChecked(clbValue, entry.ValueFlags);
 
         entry.IsDirty = true;
+
+        // ── Save market fields ──
+        SaveMarketFromUi(_currentClassname);
+
         return true;
     }
 
@@ -1064,6 +1447,51 @@ public sealed class MainForm : Form
                 set.Add(text.Trim());
             }
         }
+    }
+
+    private void SaveMarketFromUi(string className)
+    {
+        if (!_marketCache.TryGetValue(className, out var mkt))
+        {
+            mkt = MarketItem.CreateDefault(className);
+            _marketCache[className] = mkt;
+        }
+
+        mkt.MaxPriceThreshold = (int)numMaxPrice.Value;
+        mkt.MinPriceThreshold = (int)numMinPrice.Value;
+        mkt.SellPricePercent = (int)numSellPricePercent.Value;
+        mkt.MaxStockThreshold = (int)numMaxStock.Value;
+        mkt.MinStockThreshold = (int)numMinStock.Value;
+        mkt.QuantityPercent = (int)numQuantityPercent.Value;
+
+        mkt.SpawnAttachments = ParseCommaSeparated(txtSpawnAttachments.Text);
+        mkt.Variants = ParseCommaSeparated(txtVariants.Text);
+
+        mkt.IsDirty = true;
+    }
+
+    private static List<string> ParseCommaSeparated(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new List<string>();
+        return text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                   .Where(s => s.Length > 0)
+                   .ToList();
+    }
+
+    private void PersistMarket(bool force)
+    {
+        if (!_marketService.HasFile) return;
+
+        foreach (var kvp in _marketCache)
+        {
+            var item = kvp.Value;
+            if (!force && !item.IsDirty) continue;
+
+            _marketService.Upsert(item);
+            item.IsDirty = false;
+        }
+
+        _marketService.Save();
     }
 
     private void PersistToXml(bool force)

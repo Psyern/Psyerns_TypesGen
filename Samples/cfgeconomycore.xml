@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<economycore>
+	<classes>
+		<!--
+These are rootclasses to be used by economy.
+Do not forget to add attribute act="character", if root class represents character (player, infected, animal)
+Do not forget to add attribute act="car", if root class represents moveable vehicles
+-->
+		<rootclass name="DefaultWeapon" />
+		<!-- weapons -->
+		<rootclass name="DefaultMagazine" />
+		<!-- magazines -->
+		<rootclass name="Inventory_Base" />
+		<!-- inventory items -->
+		<rootclass name="HouseNoDestruct" reportMemoryLOD="no" />
+		<!-- houses, wrecks -->
+		<rootclass name="SurvivorBase" act="character" reportMemoryLOD="no" />
+		<!-- player characters -->
+		<rootclass name="DZ_LightAI" act="character" reportMemoryLOD="no" />
+		<!-- infected, animals -->
+		<rootclass name="CarScript" act="car" reportMemoryLOD="no" />
+		<!-- cars (sedan, hatchback, transitBus, V3S, ...) -->
+		<rootclass name="BoatScript" act="car" reportMemoryLOD="no" />
+		<!-- boats -->
+	</classes>
+	<defaults>
+		<default name="dyn_radius" value="30" />
+		<default name="dyn_smin" value="0" />
+		<default name="dyn_smax" value="0" />
+		<default name="dyn_dmin" value="1" />
+		<default name="dyn_dmax" value="5" />
+		<default name="log_ce_loop" value="false"/>
+		<default name="log_ce_dynamicevent" value="false"/>
+		<default name="log_ce_vehicle" value="false"/>
+		<default name="log_ce_lootspawn" value="false"/>
+		<default name="log_ce_lootcleanup" value="false"/>
+		<default name="log_ce_lootrespawn" value="false"/>
+		<default name="log_ce_statistics" value="false"/>
+		<default name="log_ce_zombie" value="false"/>
+		<default name="log_storageinfo" value="false"/>
+		<default name="log_hivewarning" value="true"/>
+		<default name="log_missionfilewarning" value="true"/>
+		<default name="save_events_startup" value="true"/>
+		<default name="save_types_startup" value="true"/>
+	</defaults>
+	<!--Core-->
+	<ce folder="Core">
+		<file name="A6_Base_Storage_types.xml" type="types"/>
+		<file name="cjmorematerials_types.xml" type="types"/>
+		<file name="fortune_spawnabletypes.xml" type="cfgspawnabletypes"/>
+		<file name="typesFortune.xml" type="types"/>
+		<file name="DME_Clothing_Types.xml" type="types"/>
+		<file name="mb_battery_types.xml" type="types"/>
+		<file name="sparkplugplus.xml" type="types"/>
+		<file name="artefakt_types.xml" type="types"/>
+		<file name="ext_types.xml" type="types"/>
+		<file name="ext_covers_types.xml" type="types"/>
+		<file name="MagLoader_types.xml" type="types"/>
+		<file name="MoreCrashsites_types.xml" type="types" />
+		<file name="MoreCrashsites_events.xml" type="events" />
+		<file name="realammotypes.xml" type="types" />
+		<file name="bandit_types.xml" type="types" />
+	</ce>
+	<!--terje-->
+	<ce folder="terje">
+		<file name="skills_types.xml" type="types"/>
+		<file name="skills_compatible_types.xml" type="types"/>
+		<file name="medicine_required_types.xml" type="types"/>
+		<file name="medicine_optional_types.xml" type="types"/>
+	</ce>
+	<!--BBP-->
+	<ce folder="BBP_ce">
+		<file name="BBP_Crafted_Types.xml" type="types"/>
+		<file name="BBP_Loot_Types.xml" type="types"/>
+		<file name="BBP_types.xml" type="types"/>
+	</ce>
+	<!-- CJ -->
+	<ce folder="CJ">
+		<file name="Lootchest_types.xml" type="types"/>
+		<file name="Lootchest_cfgspawnabletypes.xml" type="cfgspawnabletypes"/>
+	</ce>
+	<!-- Hunter -->
+	<ce folder="Hunter">
+		<file name="autoloadouttypes.xml" type="types"/>
+		<file name="LifeMtypes.xml" type="types"/>
+		<file name="recycler_types.xml" type="types"/>
+		<file name="craftbench_hunter_types.xml" type="types"/>
+	</ce>
+	<!--SNAFUS-->
+	<ce folder="SNAFUS">
+		<file name="SNAFU_types.xml" type="types"/>
+		<file name="snafuspawnabletypes25percent.xml" type="types"/>
+	</ce>
+	<!--Expansion-->
+	<ce folder="expansion_ce">
+		<file name="expansion_events.xml" type="events"/>
+		<file name="expansion_spawnabletypes.xml" type="spawnabletypes"/>
+		<file name="expansion_types.xml" type="types"/>
+	</ce>
+	<!--Paragon-->
+	<ce folder="Paragon">
+		<file name="paragon_types.xml" type="types"/>
+	</ce>
+	<!--FlipTransport-->
+	<ce folder="FlipTransport">
+		<file name="flip_types.xml" type="types"/>
+	</ce>
+	<!--SecureContainer-->
+	<ce folder="SecureContainer">
+		<file name="SecureContainer_types.xml" type="types"/>
+	</ce>
+	<!--Code Lock-->
+	<ce folder="CodeLock">
+		<file name="types.xml" type="types"/>
+	</ce>
+	<!--pokemon-->
+	<ce folder="pokemon">
+		<file name="poke_cfgspawnabletypes.xml" type="cfgspawnabletypes"/>
+		<file name="poke_types.xml" type="types"/>
+	</ce>
+</economycore>
