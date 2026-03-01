@@ -1,0 +1,29 @@
+{
+    "m_Version": 13,
+    "DisplayName": "Marina Wodka-Queen",
+    "MinRequiredReputation": 0,
+    "MaxRequiredReputation": 2147483647,
+    "RequiredFaction": "",
+    "RequiredCompletedQuestID": -1,
+    "TraderIcon": "Shotgun",
+    "Currencies": [
+        "expansionbanknotehryvnia",
+        "expansiongoldbar"
+    ],
+    "DisplayCurrencyValue": 1,
+    "DisplayCurrencyName": "",
+    "UseCategoryOrder": 0,
+    "Categories": [
+        "Holsters_And_Pouches:1",
+        "Helmets:1",
+        "Hats_And_Hoods:1",
+        "Ghillies:1",
+        "Eyewear:1",
+        "Caps:1",
+        "Belts:1",
+        "Bandanas:1",
+        "Backpacks:1",
+        "Armbands:1"
+    ],
+    "Items": {}
+}

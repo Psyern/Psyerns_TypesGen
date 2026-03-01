@@ -142,7 +142,6 @@ public sealed class MainForm : Form
         // ── Import dropdown ──
         mnuImport = new ContextMenuStrip { Name = "mnuImport" };
         mnuImport.Items.Add("Import Classnamelist (.txt)", null, (_, _) => ImportClassList());
-        mnuImport.Items.Add("Import cfglimitsdefinition.xml", null, (_, _) => ImportCfgLimits());
         mnuImport.Items.Add("Import types.xml", null, (_, _) => ImportTypesXml());
         mnuImport.Items.Add(new ToolStripSeparator());
         mnuImport.Items.Add("Import Market JSON", null, (_, _) => ImportMarketJson());
@@ -638,52 +637,6 @@ public sealed class MainForm : Form
         }
     }
 
-    private void ImportCfgLimits()
-    {
-        using var ofd = new OpenFileDialog
-        {
-            Title = "Select cfglimitsdefinition.xml",
-            Filter = "XML files (*.xml)|*.xml|All files (*.*)|*.*"
-        };
-
-        if (ofd.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
-        }
-
-        try
-        {
-            var data = CfgLimitsService.Load(ofd.FileName);
-            PopulateCheckedList(clbCategories, data.Categories);
-            PopulateCheckedList(clbTags, data.Tags);
-            PopulateCheckedList(clbUsage, data.UsageFlags);
-            PopulateCheckedList(clbValue, data.ValueFlags);
-
-            if (!string.IsNullOrWhiteSpace(_currentClassname))
-            {
-                LoadClassIntoUi(_currentClassname);
-            }
-
-            SetStatus($"Loaded cfg lists: C={data.Categories.Count}, T={data.Tags.Count}, U={data.UsageFlags.Count}, V={data.ValueFlags.Count}.");
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, ex.Message, "Import error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            SetStatus("Import failed.");
-        }
-    }
-
-    private static void PopulateCheckedList(CheckedListBox clb, List<string> items)
-    {
-        clb.BeginUpdate();
-        clb.Items.Clear();
-        foreach (var item in items)
-        {
-            clb.Items.Add(item, false);
-        }
-        clb.EndUpdate();
-    }
-
     private void ImportTypesXml()
     {
         using var ofd = new OpenFileDialog
@@ -716,7 +669,7 @@ public sealed class MainForm : Form
             foreach (var n in newNames) merged.Add(n);
             _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
 
-            // Auto-populate cfglimits lists from imported data
+            // Auto-populate category/tag/usage/value lists from imported data
             MergeCfgListsFromEntries(entries);
 
             ApplyFilter();
