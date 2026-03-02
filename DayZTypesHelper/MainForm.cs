@@ -138,6 +138,61 @@ public sealed class MainForm : Form
         DarkModeHelper.Apply(this, true);
 
         SetStatus("Ready.");
+
+        // Show splash screen on startup
+        ShowSplash();
+    }
+
+    /// <summary>Show a borderless splash popup with the app icon for 5 seconds.</summary>
+    private void ShowSplash()
+    {
+        var imgPath = Path.Combine(AppContext.BaseDirectory, "icon.png");
+        if (!File.Exists(imgPath)) return;
+
+        var splash = new Form
+        {
+            FormBorderStyle = FormBorderStyle.None,
+            StartPosition = FormStartPosition.CenterScreen,
+            ShowInTaskbar = false,
+            TopMost = true,
+            BackColor = Color.FromArgb(30, 30, 30),
+            Size = new Size(600, 600),
+        };
+
+        var img = Image.FromFile(imgPath);
+        var pic = new PictureBox
+        {
+            Image = img,
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(30, 30, 30),
+        };
+
+        splash.Controls.Add(pic);
+
+        // Close splash after 5 seconds
+        var timer = new System.Windows.Forms.Timer { Interval = 5000 };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            splash.Close();
+            splash.Dispose();
+            img.Dispose();
+        };
+
+        // Also close on click
+        pic.Click += (_, _) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            splash.Close();
+            splash.Dispose();
+            img.Dispose();
+        };
+
+        splash.Show();
+        timer.Start();
     }
 
     private void InitializeComponent()
