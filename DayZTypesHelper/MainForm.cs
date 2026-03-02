@@ -131,6 +131,7 @@ public sealed class MainForm : Form
             Icon = new Icon(iconPath);
 
         InitializeComponent();
+        SeedDefaultCfgLists();
         WireEvents();
 
         // Default to dark mode
@@ -195,6 +196,37 @@ public sealed class MainForm : Form
         timer.Start();
     }
 
+    /// <summary>
+    /// Pre-populate the CheckedListBoxes with the standard DayZ cfglimitsdefinition values
+    /// so users can assign categories/tags/usage/value even when importing a plain classname list.
+    /// </summary>
+    private void SeedDefaultCfgLists()
+    {
+        clbCategories.Items.AddRange(new object[]
+        {
+            "tools", "containers", "clothes", "lootdispatch",
+            "food", "weapons", "books", "explosives"
+        });
+
+        clbTags.Items.AddRange(new object[]
+        {
+            "floor", "shelves", "ground"
+        });
+
+        clbUsage.Items.AddRange(new object[]
+        {
+            "Military", "Police", "Medic", "Firefighter",
+            "Industrial", "Farm", "Coast", "Town", "Village",
+            "Hunting", "Office", "School", "Prison",
+            "Lunapark", "SeasonalEvent", "ContaminatedArea", "Historical"
+        });
+
+        clbValue.Items.AddRange(new object[]
+        {
+            "Tier1", "Tier2", "Tier3", "Tier4", "Unique"
+        });
+    }
+
     private void InitializeComponent()
     {
         splitMain = new SplitContainer
@@ -236,6 +268,7 @@ public sealed class MainForm : Form
         mnuImport = new ContextMenuStrip { Name = "mnuImport" };
         mnuImport.Items.Add("Import Classnamelist (.txt)", null, (_, _) => ImportClassList());
         mnuImport.Items.Add("Import types.xml", null, (_, _) => ImportTypesXml());
+        mnuImport.Items.Add("Import cfglimitsdefinition.xml", null, (_, _) => ImportCfgLimitsDefinition());
         mnuImport.Items.Add(new ToolStripSeparator());
         mnuImport.Items.Add("Import Expansion JSON (auto-detect)", null, (_, _) => ImportExpansionJson());
 
@@ -506,7 +539,7 @@ public sealed class MainForm : Form
         {
             Name = "tabTypes",
             Text = "📄 Types.xml",
-            AutoScroll = true,
+            AutoScroll = false,  // Using Dock layout: Top + Fill
             Padding = new Padding(4)
         };
 
@@ -548,10 +581,10 @@ public sealed class MainForm : Form
         flagsFlow.Controls.AddRange(new Control[] { chkCountInCargo, chkCountInHoarder, chkCountInMap, chkCountInPlayer, chkCrafted, chkDeloot });
         grpFlags.Controls.Add(flagsFlow);
 
-        grpCategories = new GroupBox { Name = "grpCategories", Text = "Categories", Dock = DockStyle.Top, Height = 180, Padding = new Padding(8) };
-        grpTags = new GroupBox { Name = "grpTags", Text = "Tags", Dock = DockStyle.Top, Height = 180, Padding = new Padding(8) };
-        grpUsageFlags = new GroupBox { Name = "grpUsageFlags", Text = "UsageFlags", Dock = DockStyle.Top, Height = 180, Padding = new Padding(8) };
-        grpValueFlags = new GroupBox { Name = "grpValueFlags", Text = "ValueFlags", Dock = DockStyle.Top, Height = 180, Padding = new Padding(8) };
+        grpCategories = new GroupBox { Name = "grpCategories", Text = "Categories", Dock = DockStyle.Fill, Padding = new Padding(4) };
+        grpTags = new GroupBox { Name = "grpTags", Text = "Tags", Dock = DockStyle.Fill, Padding = new Padding(4) };
+        grpUsageFlags = new GroupBox { Name = "grpUsageFlags", Text = "Usage Flags", Dock = DockStyle.Fill, Padding = new Padding(4) };
+        grpValueFlags = new GroupBox { Name = "grpValueFlags", Text = "Value Flags", Dock = DockStyle.Fill, Padding = new Padding(4) };
 
         clbCategories = new CheckedListBox { Name = "clbCategories", Dock = DockStyle.Fill, CheckOnClick = true };
         clbTags = new CheckedListBox { Name = "clbTags", Dock = DockStyle.Fill, CheckOnClick = true };
@@ -563,13 +596,32 @@ public sealed class MainForm : Form
         grpUsageFlags.Controls.Add(clbUsage);
         grpValueFlags.Controls.Add(clbValue);
 
-        AddFullWidthRow(grpFlags);
-        AddFullWidthRow(grpCategories);
-        AddFullWidthRow(grpTags);
-        AddFullWidthRow(grpUsageFlags);
-        AddFullWidthRow(grpValueFlags);
+        // ── 4-column grid for category/tag/usage/value lists ──
+        var tlpLists = new TableLayoutPanel
+        {
+            Name = "tlpLists",
+            Dock = DockStyle.Fill,   // Fill remaining space below tlpEditor
+            ColumnCount = 4,
+            RowCount = 1,
+            MinimumSize = new Size(0, 200),
+            Padding = new Padding(4, 0, 4, 4)
+        };
+        tlpLists.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        tlpLists.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        tlpLists.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        tlpLists.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        tlpLists.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        tlpLists.Controls.Add(grpCategories, 0, 0);
+        tlpLists.Controls.Add(grpTags, 1, 0);
+        tlpLists.Controls.Add(grpUsageFlags, 2, 0);
+        tlpLists.Controls.Add(grpValueFlags, 3, 0);
 
-        tabTypes.Controls.Add(tlpEditor);
+        AddFullWidthRow(grpFlags);
+
+        // Add tlpEditor (numerics + flags) at top, then tlpLists fills remaining space
+        // Order matters: Dock.Fill must be added BEFORE Dock.Top for correct layout
+        tabTypes.Controls.Add(tlpLists);   // Fill (added first = fills remaining)
+        tabTypes.Controls.Add(tlpEditor);  // Top  (added second = docks to top)
         tabEditor.TabPages.Add(tabTypes);
 
         // ═══════════════════════════════════════════════════════════
@@ -1560,6 +1612,40 @@ public sealed class MainForm : Form
         MergeIntoCheckedList(clbTags, entries.SelectMany(e => e.Tags));
         MergeIntoCheckedList(clbUsage, entries.SelectMany(e => e.UsageFlags));
         MergeIntoCheckedList(clbValue, entries.SelectMany(e => e.ValueFlags));
+    }
+
+    private void ImportCfgLimitsDefinition()
+    {
+        using var ofd = new OpenFileDialog
+        {
+            Title = "Import cfglimitsdefinition.xml",
+            Filter = "XML files (*.xml)|*.xml|All files (*.*)|*.*"
+        };
+
+        if (ofd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            var result = Services.CfgLimitsDefinitionService.Load(ofd.FileName);
+
+            MergeIntoCheckedList(clbCategories, result.Categories);
+            MergeIntoCheckedList(clbTags, result.Tags);
+            MergeIntoCheckedList(clbUsage, result.UsageFlags);
+            MergeIntoCheckedList(clbValue, result.ValueFlags);
+
+            var total = result.Categories.Count + result.Tags.Count
+                      + result.UsageFlags.Count + result.ValueFlags.Count;
+
+            SetStatus($"Loaded cfglimitsdefinition.xml — {result.Categories.Count} categories, " +
+                      $"{result.Tags.Count} tags, {result.UsageFlags.Count} usage flags, " +
+                      $"{result.ValueFlags.Count} value flags ({total} total).");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Import error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Import cfglimitsdefinition.xml failed.");
+        }
     }
 
     private void ImportMarketJson()
