@@ -5,7 +5,7 @@ namespace DayZTypesHelper;
 
 public sealed class MainForm : Form
 {
-    private const string AppVersion = "v1.01";
+    private const string AppVersion = "v1.03";
 
     // ── Menu bar ──────────────────────────────────────────────────
     private MenuStrip menuStrip = null!;
@@ -125,10 +125,16 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         KeyPreview = true;
 
-        // Set app icon from embedded resource
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "icon.ico");
-        if (File.Exists(iconPath))
-            Icon = new Icon(iconPath);
+        // Set app icon from embedded resource (fallback to file)
+        var icoStream = typeof(MainForm).Assembly.GetManifestResourceStream("icon.ico");
+        if (icoStream != null)
+            Icon = new Icon(icoStream);
+        else
+        {
+            var iconPath = Path.Combine(AppContext.BaseDirectory, "icon.ico");
+            if (File.Exists(iconPath))
+                Icon = new Icon(iconPath);
+        }
 
         InitializeComponent();
         SeedDefaultCfgLists();
@@ -147,8 +153,21 @@ public sealed class MainForm : Form
     /// <summary>Show a borderless splash popup with the app icon for 5 seconds.</summary>
     private void ShowSplash()
     {
-        var imgPath = Path.Combine(AppContext.BaseDirectory, "icon.png");
-        if (!File.Exists(imgPath)) return;
+        // Try embedded resource first, then fall back to file on disk
+        Image? img = null;
+        var pngStream = typeof(MainForm).Assembly.GetManifestResourceStream("icon.png");
+        if (pngStream != null)
+        {
+            img = Image.FromStream(pngStream);
+        }
+        else
+        {
+            var imgPath = Path.Combine(AppContext.BaseDirectory, "icon.png");
+            if (File.Exists(imgPath))
+                img = Image.FromFile(imgPath);
+        }
+
+        if (img == null) return;
 
         var splash = new Form
         {
@@ -160,7 +179,6 @@ public sealed class MainForm : Form
             Size = new Size(600, 600),
         };
 
-        var img = Image.FromFile(imgPath);
         var pic = new PictureBox
         {
             Image = img,

@@ -22,5 +22,11 @@
       <Link>icon.png</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <EmbeddedResource Include="..\assets\icon.ico">
+      <LogicalName>icon.ico</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\assets\icon.png">
+      <LogicalName>icon.png</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>
