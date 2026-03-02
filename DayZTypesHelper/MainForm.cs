@@ -19,6 +19,13 @@ public sealed class MainForm : Form
     private ContextMenuStrip mnuImport = null!;
     private Button btnClearList = null!;
 
+    // ── Trader mode: available market files (bottom list in left panel) ──
+    private Label lblTraderCategoriesHeader = null!;
+    private Label lblAvailableMarketHeader = null!;
+    private ListBox lstAvailableMarketFiles = null!;
+    private Panel pnlAvailableMarket = null!;
+    private SplitContainer splitLeftTrader = null!;
+
     // ── Right side: file row ──────────────────────────────────────
     private Panel pnlRight = null!;
     private Panel pnlFile = null!;
@@ -84,6 +91,9 @@ public sealed class MainForm : Form
     private TextBox txtCurrencies = null!;
     private ListBox lstTraderCategories = null!;
     private Button btnLoadMarketFromCategories = null!;
+    private Button btnAddCategory = null!;
+    private Button btnRemoveCategory = null!;
+    private Button btnSetBuySellMode = null!;
     private Label lblTraderDest = null!;
 
     private StatusStrip statusStrip = null!;
@@ -101,6 +111,7 @@ public sealed class MainForm : Form
 
     private List<string> _allClasses = new();
     private string? _currentClassname;
+    private string? _marketFolderPath;
     private bool _loadingUi;
     private bool _suppressSelectionHandler;
     private int _lastValidQuantMin = -1;
@@ -113,6 +124,11 @@ public sealed class MainForm : Form
         Height = 800;
         StartPosition = FormStartPosition.CenterScreen;
         KeyPreview = true;
+
+        // Set app icon from embedded resource
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "icon.ico");
+        if (File.Exists(iconPath))
+            Icon = new Icon(iconPath);
 
         InitializeComponent();
         WireEvents();
@@ -130,7 +146,7 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
-            SplitterDistance = 300
+            SplitterDistance = 200
         };
 
         txtSearch = new TextBox
@@ -187,11 +203,84 @@ public sealed class MainForm : Form
             Margin = new Padding(2)
         };
 
+        btnAddCategory = new Button
+        {
+            Name = "btnAddCategory",
+            Text = "➕ Add Category",
+            Width = 130,
+            Height = 28,
+            Margin = new Padding(2),
+            Visible = false
+        };
+
+        btnRemoveCategory = new Button
+        {
+            Name = "btnRemoveCategory",
+            Text = "➖ Remove Category",
+            Width = 145,
+            Height = 28,
+            Margin = new Padding(2),
+            Visible = false
+        };
+
         flowLeftButtons.Controls.Add(btnImport);
         flowLeftButtons.Controls.Add(btnClearList);
+        flowLeftButtons.Controls.Add(btnAddCategory);
+        flowLeftButtons.Controls.Add(btnRemoveCategory);
         pnlLeftButtons.Controls.Add(flowLeftButtons);
 
-        splitMain.Panel1.Controls.Add(lstClasses);
+        // ── Available Market Files panel (shown only in Trader mode) ──
+        pnlAvailableMarket = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Visible = false
+        };
+
+        lblAvailableMarketHeader = new Label
+        {
+            Name = "lblAvailableMarketHeader",
+            Text = "📂 Available Market Files (drag → Trader Categories)",
+            Dock = DockStyle.Top,
+            Height = 20,
+            Font = new Font(Font.FontFamily, 8.5f, FontStyle.Bold),
+            Padding = new Padding(4, 2, 0, 0)
+        };
+
+        lstAvailableMarketFiles = new ListBox
+        {
+            Name = "lstAvailableMarketFiles",
+            Dock = DockStyle.Fill,
+            SelectionMode = SelectionMode.One
+        };
+
+        pnlAvailableMarket.Controls.Add(lstAvailableMarketFiles);
+        pnlAvailableMarket.Controls.Add(lblAvailableMarketHeader);
+
+        // ── Header label for upper list (shown only in Trader mode) ──
+        lblTraderCategoriesHeader = new Label
+        {
+            Name = "lblTraderCategoriesHeader",
+            Text = "🏪 Trader Categories",
+            Dock = DockStyle.Top,
+            Height = 20,
+            Font = new Font(Font.FontFamily, 8.5f, FontStyle.Bold),
+            Padding = new Padding(4, 2, 0, 0),
+            Visible = false
+        };
+
+        // ── Inner SplitContainer for Trader mode (top: categories, bottom: available files) ──
+        splitLeftTrader = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            Orientation = Orientation.Horizontal,
+            Visible = false
+        };
+
+        // Top: header + categories list (lstClasses is reused, added dynamically)
+        splitLeftTrader.Panel2.Controls.Add(pnlAvailableMarket);
+
+        splitMain.Panel1.Controls.Add(lstClasses);     // default: classnames
+        splitMain.Panel1.Controls.Add(splitLeftTrader); // hidden, shown in Trader mode
         splitMain.Panel1.Controls.Add(txtSearch);
         splitMain.Panel1.Controls.Add(pnlLeftButtons);
 
@@ -527,37 +616,42 @@ public sealed class MainForm : Form
         });
         cmbBuySellMode.SelectedIndex = 1; // default: Buy + Sell
 
+        btnSetBuySellMode = new Button
+        {
+            Name = "btnSetBuySellMode",
+            Text = "Set",
+            Width = 60,
+            Height = 24,
+            Margin = new Padding(6, 0, 0, 0)
+        };
+
+        var pnlBuySellRow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            WrapContents = false
+        };
+        pnlBuySellRow.Controls.Add(cmbBuySellMode);
+        pnlBuySellRow.Controls.Add(btnSetBuySellMode);
+
         var traderRow = tlpTrader.RowCount++;
         tlpTrader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         tlpTrader.Controls.Add(lblBuySellMode, 0, traderRow);
-        tlpTrader.Controls.Add(cmbBuySellMode, 1, traderRow);
+        tlpTrader.Controls.Add(pnlBuySellRow, 1, traderRow);
 
         // ── Trader metadata fields ──
         AddTraderRow("DisplayName", txtTraderDisplayName = new TextBox { Name = "txtTraderDisplayName", Dock = DockStyle.Fill });
         AddTraderRow("TraderIcon", txtTraderIcon = new TextBox { Name = "txtTraderIcon", Dock = DockStyle.Fill });
         AddTraderRow("Currencies", txtCurrencies = new TextBox { Name = "txtCurrencies", Dock = DockStyle.Fill, PlaceholderText = "comma-separated (e.g. expansionbanknotehryvnia, expansiongoldbar)" });
 
-        // ── Categories list (read-only display of referenced Market files) ──
-        var lblCats = new Label
-        {
-            Text = "Categories\n(= Market files)",
-            AutoSize = true,
-            Dock = DockStyle.Fill,
-            Padding = new Padding(0, 6, 0, 0)
-        };
+        // ── Hidden categories list (data store only, not shown in Trader tab) ──
         lstTraderCategories = new ListBox
         {
             Name = "lstTraderCategories",
-            Dock = DockStyle.Fill,
-            Height = 140,
-            SelectionMode = SelectionMode.None
+            Visible = false
         };
-        var catRow = tlpTrader.RowCount++;
-        tlpTrader.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        tlpTrader.Controls.Add(lblCats, 0, catRow);
-        tlpTrader.Controls.Add(lstTraderCategories, 1, catRow);
 
-        // ── Button: Load all referenced Market JSONs ──
+        // ── Button: Scan folder for Market JSON files ──
         btnLoadMarketFromCategories = new Button
         {
             Name = "btnLoadMarketFromCategories",
@@ -719,11 +813,36 @@ public sealed class MainForm : Form
         txtSpawnAttachments.TextChanged += (_, _) => OnEditorChanged();
         txtVariants.TextChanged += (_, _) => OnEditorChanged();
 
-        cmbBuySellMode.SelectedIndexChanged += (_, _) => OnEditorChanged();
+        cmbBuySellMode.SelectedIndexChanged += (_, _) => OnBuySellModeChanged();
+        btnSetBuySellMode.Click += (_, _) => SetBuySellModeForSelectedCategory();
         txtTraderDisplayName.TextChanged += (_, _) => OnTraderMetaChanged();
         txtTraderIcon.TextChanged += (_, _) => OnTraderMetaChanged();
         txtCurrencies.TextChanged += (_, _) => OnTraderMetaChanged();
         btnLoadMarketFromCategories.Click += (_, _) => LoadMarketFilesFromCategories();
+        btnAddCategory.Click += (_, _) => AddTraderCategory();
+        btnRemoveCategory.Click += (_, _) => RemoveTraderCategory();
+
+        // Drag & Drop: from lstAvailableMarketFiles → lstClasses (Trader categories)
+        lstAvailableMarketFiles.MouseDown += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left && lstAvailableMarketFiles.SelectedItem is string item)
+                lstAvailableMarketFiles.DoDragDrop(item, DragDropEffects.Copy);
+        };
+        lstClasses.AllowDrop = true;
+        lstClasses.DragEnter += (_, e) =>
+        {
+            if (tabEditor.SelectedTab == tabTrader && e.Data?.GetDataPresent(typeof(string)) == true)
+                e.Effect = DragDropEffects.Copy;
+            else
+                e.Effect = DragDropEffects.None;
+        };
+        lstClasses.DragDrop += (_, e) =>
+        {
+            if (e.Data?.GetData(typeof(string)) is string dropped)
+                DropMarketFileAsCategory(dropped);
+        };
+
+        tabEditor.SelectedIndexChanged += (_, _) => OnTabChanged();
 
         _autosaveTimer.Tick += (_, _) => AutosaveTick();
 
@@ -853,97 +972,427 @@ public sealed class MainForm : Form
     }
 
     /// <summary>
-    /// Load all Market JSON files referenced by the Trader's Categories.
-    /// E.g. "Helmets:1" → looks for Helmets.json in the same folder as the Trader file.
+    /// Called when the BuySellMode dropdown changes.
+    /// If a classname is selected, applies to that item (normal edit flow).
+    /// If in Trader tab mode with no classname, applies to ALL items in the trader cache.
+    /// </summary>
+    private void OnBuySellModeChanged()
+    {
+        if (_loadingUi) return;
+
+        // Normal mode: a classname is selected → standard edit flow
+        if (!string.IsNullOrWhiteSpace(_currentClassname))
+        {
+            OnEditorChanged();
+            return;
+        }
+
+        // Trader tab mode without selected classname → apply to all items
+        if (tabEditor.SelectedTab != tabTrader || !_traderService.HasFile) return;
+
+        var mode = cmbBuySellMode.SelectedIndex >= 0 ? cmbBuySellMode.SelectedIndex : 1;
+        var count = 0;
+
+        foreach (var kvp in _traderCache)
+        {
+            kvp.Value.BuySellMode = mode;
+            kvp.Value.IsDirty = true;
+            count++;
+        }
+
+        if (count > 0)
+        {
+            // Use autosave instead of immediate force-persist to avoid
+            // writing during event cascades (e.g. drag & drop, tab switch).
+            _autosaveTimer.Stop();
+            _autosaveTimer.Start();
+            SetStatus($"BuySellMode set to {cmbBuySellMode.SelectedItem} for all {count} items.");
+        }
+        else
+        {
+            SetStatus($"BuySellMode set to {cmbBuySellMode.SelectedItem} (no items in cache yet – will apply as default).");
+        }
+    }
+
+    /// <summary>
+    /// "Set" button: applies the selected BuySellMode to all items that belong to the
+    /// currently selected Trader category. The category name maps to a Market JSON file
+    /// whose Items[] contains the relevant classnames.
+    /// </summary>
+    private void SetBuySellModeForSelectedCategory()
+    {
+        if (!_traderService.HasFile)
+        {
+            MessageBox.Show(this, "No Trader file loaded. Import a Trader JSON first.",
+                "Set Buy/Sell Mode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Get the selected category from the left list
+        var selectedCat = lstClasses.SelectedItem as string;
+        if (string.IsNullOrWhiteSpace(selectedCat))
+        {
+            MessageBox.Show(this, "Select a category in the left list first.",
+                "Set Buy/Sell Mode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Extract category name (strip :BuySellMode suffix)
+        var catName = selectedCat.Contains(':') ? selectedCat[..selectedCat.IndexOf(':')] : selectedCat;
+
+        // Determine the market folder path: stored path → trader file dir → prompt
+        var folderPath = _marketFolderPath;
+        if (string.IsNullOrWhiteSpace(folderPath) && _traderService.FilePath != null)
+            folderPath = Path.GetDirectoryName(_traderService.FilePath);
+
+        if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+        {
+            // Prompt user to select the market folder
+            using var fbd = new FolderBrowserDialog
+            {
+                Description = "Select the folder containing the Market JSON files",
+                UseDescriptionForTitle = true
+            };
+            if (fbd.ShowDialog(this) != DialogResult.OK) return;
+            folderPath = fbd.SelectedPath;
+            _marketFolderPath = folderPath;
+        }
+
+        // Find the Market JSON file for this category
+        var marketFile = Path.Combine(folderPath!, catName + ".json");
+        if (!File.Exists(marketFile))
+        {
+            MessageBox.Show(this,
+                $"Market file not found:\n{marketFile}\n\nMake sure the Market JSON files are in the same folder.",
+                "Set Buy/Sell Mode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        // Read classnames from the Market JSON
+        List<string> classnames;
+        try
+        {
+            var marketItems = MarketJsonService.ImportFromFile(marketFile);
+            classnames = marketItems.Select(m => m.ClassName).ToList();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Failed to read Market file:\n{ex.Message}",
+                "Set Buy/Sell Mode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        if (classnames.Count == 0)
+        {
+            SetStatus($"Market file \"{catName}.json\" contains no items.");
+            return;
+        }
+
+        var mode = cmbBuySellMode.SelectedIndex >= 0 ? cmbBuySellMode.SelectedIndex : 1;
+        var count = 0;
+
+        foreach (var className in classnames)
+        {
+            // Ensure the item exists in the trader cache
+            if (!_traderCache.TryGetValue(className, out var traderItem))
+            {
+                traderItem = _traderService.TryRead(className) ?? new Models.TraderItem
+                {
+                    ClassName = className,
+                    BuySellMode = mode,
+                    IsDirty = true
+                };
+                _traderCache[className] = traderItem;
+            }
+
+            traderItem.BuySellMode = mode;
+            traderItem.IsDirty = true;
+            count++;
+        }
+
+        if (count > 0)
+        {
+            // Update the category entry to reflect the new BuySellMode
+            var categories = _traderService.GetCategories();
+            var idx = categories.FindIndex(c =>
+            {
+                var existing = c.Contains(':') ? c[..c.IndexOf(':')] : c;
+                return string.Equals(existing, catName, StringComparison.OrdinalIgnoreCase);
+            });
+            if (idx >= 0)
+            {
+                categories[idx] = $"{catName}:{mode}";
+                _traderService.SetCategories(categories);
+            }
+
+            // Persist item changes + category update together
+            PersistTrader(force: true);
+            // Ensure the category change is saved even if PersistTrader found
+            // nothing to upsert (shouldn't happen here, but defensive)
+            _traderService.Save();
+
+            RefreshTraderCategoriesInLeftList();
+            SetStatus($"BuySellMode set to {cmbBuySellMode.SelectedItem} for {count} items in category \"{catName}\".");
+        }
+    }
+
+    /// <summary>
+    /// Scan a folder for all Market JSON files and populate the available market files list.
+    /// The user can then drag & drop files from this list into the Trader categories.
     /// </summary>
     private void LoadMarketFilesFromCategories()
     {
-        if (!_traderService.HasFile || _traderService.FilePath == null)
+        // Determine initial directory from trader file or last used path
+        var initialDir = _traderService.HasFile && _traderService.FilePath != null
+            ? Path.GetDirectoryName(_traderService.FilePath) ?? ""
+            : "";
+
+        using var fbd = new FolderBrowserDialog
+        {
+            Description = "Select the folder containing the Market JSON files\n(e.g. Helmets.json, Ammo.json, ...)",
+            UseDescriptionForTitle = true,
+            InitialDirectory = initialDir
+        };
+
+        if (fbd.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        var marketDir = fbd.SelectedPath;
+        _marketFolderPath = marketDir;
+
+        try
+        {
+            var jsonFiles = Directory.GetFiles(marketDir, "*.json")
+                .Select(Path.GetFileName)
+                .Where(f => f != null)
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            lstAvailableMarketFiles.Items.Clear();
+            foreach (var file in jsonFiles)
+                lstAvailableMarketFiles.Items.Add(file!);
+
+            // Make sure the bottom panel is visible
+            pnlAvailableMarket.Visible = true;
+
+            SetStatus($"Found {jsonFiles.Count} JSON files in: {marketDir}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Scan folder error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            SetStatus("Failed to scan folder for Market files.");
+        }
+    }
+
+    /// <summary>Called when the active tab changes. Switches left panel between classnames and trader categories.</summary>
+    private void OnTabChanged()
+    {
+        var isTraderTab = tabEditor.SelectedTab == tabTrader;
+
+        // Show/hide category buttons
+        btnAddCategory.Visible = isTraderTab;
+        btnRemoveCategory.Visible = isTraderTab;
+
+        if (isTraderTab)
+        {
+            // Move lstClasses into the split top panel with header
+            lstClasses.Dock = DockStyle.Fill;
+            splitLeftTrader.Panel1.Controls.Add(lstClasses);
+            splitLeftTrader.Panel1.Controls.Add(lblTraderCategoriesHeader);
+            lblTraderCategoriesHeader.Visible = true;
+            pnlAvailableMarket.Visible = true;
+
+            splitLeftTrader.Visible = true;
+            splitLeftTrader.SplitterDistance = splitLeftTrader.Height / 2;
+
+            RefreshTraderCategoriesInLeftList();
+        }
+        else
+        {
+            // Move lstClasses back to the main left panel
+            lblTraderCategoriesHeader.Visible = false;
+            pnlAvailableMarket.Visible = false;
+            splitLeftTrader.Visible = false;
+
+            splitLeftTrader.Panel1.Controls.Remove(lstClasses);
+            splitLeftTrader.Panel1.Controls.Remove(lblTraderCategoriesHeader);
+
+            lstClasses.Dock = DockStyle.Fill;
+            splitMain.Panel1.Controls.Add(lstClasses);
+            splitMain.Panel1.Controls.SetChildIndex(lstClasses, 0); // on top
+
+            ApplyFilter(); // restore classnames
+        }
+    }
+
+    /// <summary>Refreshes the hidden lstTraderCategories data store.</summary>
+    private void RefreshTraderCategoriesUi()
+    {
+        var categories = _traderService.HasFile ? _traderService.GetCategories() : new List<string>();
+        lstTraderCategories.Items.Clear();
+        foreach (var cat in categories)
+            lstTraderCategories.Items.Add(cat);
+
+        // Also refresh the left list if we're on the Trader tab
+        if (tabEditor.SelectedTab == tabTrader)
+            RefreshTraderCategoriesInLeftList();
+    }
+
+    /// <summary>
+    /// Populates lstClasses with the Trader's categories (with BuySellMode info)
+    /// when the Trader tab is active.
+    /// </summary>
+    private void RefreshTraderCategoriesInLeftList()
+    {
+        var categories = _traderService.HasFile ? _traderService.GetCategories() : new List<string>();
+
+        _suppressSelectionHandler = true;
+        lstClasses.BeginUpdate();
+        lstClasses.Items.Clear();
+        foreach (var cat in categories)
+            lstClasses.Items.Add(cat);
+        lstClasses.EndUpdate();
+        _suppressSelectionHandler = false;
+
+        // Also sync the hidden data store
+        lstTraderCategories.Items.Clear();
+        foreach (var cat in categories)
+            lstTraderCategories.Items.Add(cat);
+    }
+
+    /// <summary>
+    /// Handle a Market file name dropped onto the Trader categories list.
+    /// Adds it as a new category with default BuySellMode :1 (Buy + Sell).
+    /// </summary>
+    private void DropMarketFileAsCategory(string marketFileName)
+    {
+        if (!_traderService.HasFile)
         {
             MessageBox.Show(this, "No Trader file loaded. Import a Trader JSON first.",
-                "Load Market Files", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                "Add Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        var traderDir = Path.GetDirectoryName(_traderService.FilePath);
-        if (string.IsNullOrEmpty(traderDir))
+        // Strip .json extension if present
+        var catName = marketFileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            ? marketFileName[..^5]
+            : marketFileName;
+
+        // Check for duplicate
+        var categories = _traderService.GetCategories();
+        if (categories.Any(c =>
         {
-            SetStatus("Cannot determine Trader file directory.");
+            var existing = c.Contains(':') ? c[..c.IndexOf(':')] : c;
+            return string.Equals(existing, catName, StringComparison.OrdinalIgnoreCase);
+        }))
+        {
+            SetStatus($"Category \"{catName}\" already exists in Trader.");
             return;
         }
+
+        var entry = $"{catName}:1";
+        categories.Add(entry);
+        _traderService.SetCategories(categories);
+        _traderService.Save();
+
+        RefreshTraderCategoriesInLeftList();
+        SetStatus($"Category \"{entry}\" added via drag & drop.");
+    }
+
+    /// <summary>Add a new category to the Trader file.</summary>
+    private void AddTraderCategory()
+    {
+        if (!_traderService.HasFile)
+        {
+            MessageBox.Show(this, "No Trader file loaded. Import a Trader JSON first.",
+                "Add Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var input = PromptInput("Add Category",
+            "Enter category name (e.g. \"Helmets\").\n\n" +
+            "The name must match a Market JSON file (e.g. Helmets → Helmets.json).\n" +
+            "Buy/Sell Mode will default to 1 (Buy + Sell).\n" +
+            "Use the \"Set\" button to change it later.",
+            "");
+
+        if (string.IsNullOrWhiteSpace(input)) return;
+
+        // Validate format: if no colon, auto-add default BuySellMode :1
+        if (!input.Contains(':'))
+        {
+            input += ":1"; // default: Buy + Sell
+        }
+
+        // Check for duplicate
+        var categories = _traderService.GetCategories();
+        var catName = input.Contains(':') ? input[..input.IndexOf(':')] : input;
+        if (categories.Any(c =>
+        {
+            var existing = c.Contains(':') ? c[..c.IndexOf(':')] : c;
+            return string.Equals(existing, catName, StringComparison.OrdinalIgnoreCase);
+        }))
+        {
+            MessageBox.Show(this, $"Category \"{catName}\" already exists.",
+                "Add Category", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        categories.Add(input);
+        _traderService.SetCategories(categories);
+        _traderService.Save();
+
+        // Update UI
+        RefreshTraderCategoriesInLeftList();
+
+        SetStatus($"Category \"{input}\" added.");
+    }
+
+    /// <summary>Remove the selected category from the Trader file.</summary>
+    private void RemoveTraderCategory()
+    {
+        if (!_traderService.HasFile)
+        {
+            MessageBox.Show(this, "No Trader file loaded. Import a Trader JSON first.",
+                "Remove Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // In Trader tab mode, the left list shows categories
+        var selected = (tabEditor.SelectedTab == tabTrader)
+            ? lstClasses.SelectedItem as string
+            : lstTraderCategories.SelectedItem as string;
+
+        if (string.IsNullOrWhiteSpace(selected))
+        {
+            MessageBox.Show(this, "Select a category to remove first.",
+                "Remove Category", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(this,
+            $"Remove category \"{selected}\"?",
+            "Remove Category", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+        if (confirm != DialogResult.Yes) return;
 
         var categories = _traderService.GetCategories();
-        if (categories.Count == 0)
-        {
-            SetStatus("No categories found in Trader file.");
-            return;
-        }
+        categories.RemoveAll(c => string.Equals(c, selected, StringComparison.Ordinal));
+        _traderService.SetCategories(categories);
+        _traderService.Save();
 
-        var totalItems = 0;
-        var loadedFiles = 0;
-        var notFound = new List<string>();
+        // Update UI
+        RefreshTraderCategoriesInLeftList();
 
-        foreach (var catEntry in categories)
-        {
-            // Parse "Helmets:1" → name = "Helmets"
-            var catName = catEntry.Contains(':') ? catEntry[..catEntry.IndexOf(':')] : catEntry;
-            var marketPath = Path.Combine(traderDir, catName + ".json");
-
-            if (!File.Exists(marketPath))
-            {
-                notFound.Add($"{catName}.json");
-                continue;
-            }
-
-            try
-            {
-                var items = MarketJsonService.ImportFromFile(marketPath);
-                var merged = new HashSet<string>(_allClasses, StringComparer.OrdinalIgnoreCase);
-
-                foreach (var item in items)
-                {
-                    _marketCache[item.ClassName] = item;
-                    merged.Add(item.ClassName);
-
-                    if (!_cache.ContainsKey(item.ClassName))
-                    {
-                        _cache[item.ClassName] = _typesService.HasDestination
-                            ? (_typesService.TryRead(item.ClassName) ?? TypeEntry.CreateDefault(item.ClassName))
-                            : TypeEntry.CreateDefault(item.ClassName);
-                    }
-                }
-
-                _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
-                totalItems += items.Count;
-                loadedFiles++;
-            }
-            catch (Exception ex)
-            {
-                notFound.Add($"{catName}.json (error: {ex.Message})");
-            }
-        }
-
-        ApplyFilter();
-
-        var msg = $"Loaded {totalItems} items from {loadedFiles}/{categories.Count} Market files.";
-        if (notFound.Count > 0)
-            msg += $"\nNot found: {string.Join(", ", notFound)}";
-
-        SetStatus(msg);
-
-        if (notFound.Count > 0)
-        {
-            MessageBox.Show(this,
-                $"Successfully loaded {loadedFiles} Market files ({totalItems} items).\n\n" +
-                $"Could not find {notFound.Count} file(s):\n" + string.Join("\n", notFound.Select(f => "  • " + f)) +
-                $"\n\nExpected location: {traderDir}",
-                "Load Market Files", MessageBoxButtons.OK,
-                loadedFiles > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Error);
-        }
+        SetStatus($"Category \"{selected}\" removed.");
     }
 
     private void ApplyFilter()
     {
+        // In Trader tab mode, the left list shows categories – don't overwrite
+        if (tabEditor.SelectedTab == tabTrader)
+            return;
+
         var selected = lstClasses.SelectedItem as string;
         var query = txtSearch.Text.Trim();
 
@@ -1166,8 +1615,9 @@ public sealed class MainForm : Form
             }
 
             _allClasses = merged.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
-            ApplyFilter();
             tabEditor.SelectedTab = tabTrader;
+            // If already on Trader tab, SelectedIndexChanged won't fire → call explicitly
+            OnTabChanged();
 
             var catCount = _traderService.GetCategories().Count;
             if (items.Count == 0)
@@ -1835,12 +2285,14 @@ public sealed class MainForm : Form
             if (_marketService.HasFile)
             {
                 PersistMarket(force: true);
+                _marketService.Save(); // Always save on explicit export
                 exported = true;
             }
 
             if (_traderService.HasFile)
             {
                 PersistTrader(force: true);
+                _traderService.Save(); // Always save on explicit export
                 exported = true;
             }
 
@@ -1864,6 +2316,24 @@ public sealed class MainForm : Form
     {
         if (_loadingUi || _suppressSelectionHandler)
         {
+            return;
+        }
+
+        // In Trader tab mode, the left list shows categories – not classnames
+        if (tabEditor.SelectedTab == tabTrader)
+        {
+            if (lstClasses.SelectedItem is string selectedCat)
+            {
+                // Parse the BuySellMode from the category entry (e.g. "Optics:1" → 1)
+                var parts = selectedCat.Split(':');
+                if (parts.Length >= 2 && int.TryParse(parts[^1], out var mode) && mode >= 0 && mode <= 3)
+                {
+                    _loadingUi = true;
+                    cmbBuySellMode.SelectedIndex = mode;
+                    _loadingUi = false;
+                }
+                SetStatus($"Category: {selectedCat}");
+            }
             return;
         }
 
@@ -2258,6 +2728,7 @@ public sealed class MainForm : Form
     {
         if (!_marketService.HasFile) return;
 
+        var anyUpserted = false;
         foreach (var kvp in _marketCache)
         {
             var item = kvp.Value;
@@ -2265,15 +2736,18 @@ public sealed class MainForm : Form
 
             _marketService.Upsert(item);
             item.IsDirty = false;
+            anyUpserted = true;
         }
 
-        _marketService.Save();
+        if (anyUpserted)
+            _marketService.Save();
     }
 
     private void PersistTrader(bool force)
     {
         if (!_traderService.HasFile) return;
 
+        var anyUpserted = false;
         foreach (var kvp in _traderCache)
         {
             var item = kvp.Value;
@@ -2281,9 +2755,12 @@ public sealed class MainForm : Form
 
             _traderService.Upsert(item);
             item.IsDirty = false;
+            anyUpserted = true;
         }
 
-        _traderService.Save();
+        // Only write the file if something actually changed
+        if (anyUpserted)
+            _traderService.Save();
     }
 
     private void PersistToXml(bool force)
